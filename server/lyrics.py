@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 import unicodedata
 import urllib.parse
 import urllib.request
@@ -25,7 +26,13 @@ HEADERS = {
     "Referer": "https://y.qq.com/",
     "Accept": "application/json, text/plain, */*",
 }
-QQ_SEARCH = "https://c.y.qq.com/soso/fcgi-bin/client_search_cp"
+# QQ serves the same API from several edges and they fail independently:
+# c.y.qq.com started returning 500 while szc.y.qq.com kept working. Try the
+# healthy ones first and remember which are down.
+QQ_HOSTS = ["https://szc.y.qq.com", "https://c.y.qq.com"]
+QQ_SEARCH_PATH = "/soso/fcgi-bin/client_search_cp"
+# oldest endpoint: still serves when the others 500, but omits `language`
+QQ_SEARCH_ALT = "https://c.y.qq.com/soso/fcgi-bin/search_for_qq_cp"
 QQ_LYRIC = "https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg"
 TIMEOUT = 15
 
@@ -61,6 +68,7 @@ class Candidate:
     has_japanese: bool = False
     language: int = 0
     duration: float = 0.0
+    pubtime: int = 0
     score: float = 0.0
 
     def as_dict(self) -> dict[str, Any]:
@@ -168,33 +176,79 @@ def _parse_trans(text: str) -> dict[str, str]:
 
 # ------------------------------------------------------------------ QQ Music
 
-def _qq_search(query: str, limit: int = 10) -> list[Candidate]:
-    url = (
-        QQ_SEARCH
-        + "?w=" + urllib.parse.quote(query)
-        + "&format=json&n=%d&p=1&cr=1&new_json=1" % limit
-    )
-    data = json.loads(_get(url))
-    songs = (((data.get("data") or {}).get("song") or {}).get("list")) or []
+def _parse_songs(songs: list[dict[str, Any]]) -> list[Candidate]:
     out: list[Candidate] = []
     for s in songs:
-        title = str(s.get("songname") or s.get("title") or "").strip()
+        title = str(s.get("songname") or s.get("title") or s.get("name") or "").strip()
         singers = s.get("singer") or []
         artist = " / ".join(str(x.get("name") or "") for x in singers).strip(" /")
         mid = str(s.get("songmid") or s.get("mid") or "")
         if not mid or not title:
             continue
+        album = s.get("albumname") or (s.get("album") or {}).get("name") or ""
         out.append(Candidate(
             source="qq",
             id=mid,
             title=title,
             artist=artist,
-            album=str((s.get("album") or {}).get("name") or s.get("albumname") or ""),
+            album=str(album),
             language=int(s.get("language") or 0),
             duration=float(s.get("interval") or 0),
-            score=_score(query, title, artist),
+            pubtime=int(s.get("pubtime") or 0),
         ))
     return out
+
+
+_cache: dict[str, tuple[float, Any]] = {}
+_host_down_until: dict[str, float] = {}
+NOW = lambda: time.time()
+
+
+def _cached(key: str, ttl: float, fn):
+    hit = _cache.get(key)
+    if hit and NOW() - hit[0] < ttl:
+        return hit[1]
+    value = fn()
+    _cache[key] = (NOW(), value)
+    return value
+
+
+def _search_urls(q: str, limit: int) -> list[str]:
+    urls = [
+        f"{host}{QQ_SEARCH_PATH}?w={q}&format=json&n={limit}&p=1&cr=1&new_json=1"
+        for host in QQ_HOSTS
+        if NOW() >= _host_down_until.get(host, 0.0)
+    ]
+    urls.append(f"{QQ_SEARCH_ALT}?w={q}&format=json&n={limit}&p=1")
+    return urls
+
+
+def _qq_search(query: str, limit: int = 12) -> list[Candidate]:
+    """Search across QQ edges, with a circuit breaker per host."""
+    def run() -> list[Candidate]:
+        q = urllib.parse.quote(query)
+        last: Exception | None = None
+        for url in _search_urls(q, limit):
+            host = url.split("/soso/")[0]
+            try:
+                data = json.loads(_get(url))
+            except Exception as e:  # noqa: BLE001
+                last = e
+                _host_down_until[host] = NOW() + 300
+                continue
+            songs = (((data.get("data") or {}).get("song") or {}).get("list")) or []
+            cands = _parse_songs(songs)
+            if cands:
+                return cands
+        if last is not None:
+            raise last
+        return []
+
+    return _cached(f"search:{query}:{limit}", 300.0, run)
+
+
+def _qq_lyric_cached(mid: str) -> dict[str, str]:
+    return _cached(f"lyric:{mid}", 3600.0, lambda: _qq_lyric(mid))
 
 
 def _score(query: str, title: str, artist: str) -> float:
@@ -258,9 +312,24 @@ def resolve(query: str, hint: str = "", max_probe: int = 4) -> Candidate | None:
     # QQ tags Japanese tracks with language == 3. This is the cheapest way to
     # tell the original SAY YES (CHAGE and ASKA) from the Korean/Chinese covers
     # that share the title, before spending a request on each lyric.
+    has_language = any(c.language for c in cands)
     jp = [c for c in cands if c.language == 3]
     if jp:
         cands = jp + [c for c in cands if c.language != 3]
+    if not has_language:
+        # The fallback endpoint carries no language tag, so we cannot pick the
+        # Japanese original that way. Release year is the next best signal:
+        # among same-title results the original is the oldest (SAY YES -> 1991).
+        qn = _norm(query)
+
+        def rank(cand: Candidate) -> tuple[int, int]:
+            tn = _norm(cand.title)
+            # containment, not equality: the original often carries a subtitle
+            # ("夜に駆ける (向夜晚奔去)") while covers use the bare title.
+            related = 0 if (qn and (qn in tn or tn in qn)) else 1
+            return (related, cand.pubtime or 9_999_999_999)
+        cands.sort(key=rank)
+        max_probe = max(max_probe, 6)
     if hint:
         fuzzy = _norm(hint)
         for i, cand in enumerate(cands):
@@ -274,7 +343,7 @@ def resolve(query: str, hint: str = "", max_probe: int = 4) -> Candidate | None:
     fallback: Candidate | None = None
     for cand in cands[:max_probe]:
         try:
-            payload = _qq_lyric(cand.id)
+            payload = _qq_lyric_cached(cand.id)
         except Exception:
             continue
         rows = parse_lrc(payload["lyric"])

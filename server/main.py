@@ -424,6 +424,7 @@ def ingest(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
     def work(progress: Callable[[float, str], None]) -> dict[str, Any]:
         au = _require_audio()
         cand = None
+        lyrics_failed = False
         if not is_url:
             progress(2, f"按歌名找歌词：{query}")
             try:
@@ -432,6 +433,9 @@ def ingest(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
                 print("lyrics resolve failed:", e)
             if cand:
                 progress(12, f"找到：{cand.title} — {cand.artist}")
+            else:
+                lyrics_failed = True
+                progress(12, "歌词源暂时没响应，先只找音频（稍后可以手动粘贴歌词）")
 
         if cand:
             dupe = _find_existing(cand)
@@ -525,6 +529,9 @@ def ingest(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
                 song["lyricsSource"] = "none"
                 song["timingSource"] = "none"
 
+        if lyrics_failed and not song["lines"]:
+            progress(80, "只拿到音频，没有歌词：确认这首歌对吗？可以稍后手动粘贴歌词。")
+
         progress(90, "生成中文标注…")
         if song["lines"]:
             try:
@@ -532,7 +539,8 @@ def ingest(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
             except Exception as e:  # noqa: BLE001
                 print("auto-annotate skipped:", e)
         store.save_song(song)
-        progress(100, f"就绪：{song['title']}（{len(song['lines'])} 行）")
+        progress(100, f"就绪：{song['title']}（{len(song['lines'])} 行）"
+                 + ("　⚠ 没找到歌词，只有音频" if lyrics_failed and not song["lines"] else ""))
         return {
             "songId": song_id,
             "title": song["title"],
@@ -540,6 +548,7 @@ def ingest(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
             "lines": len(song["lines"]),
             "lyricsSource": song.get("lyricsSource"),
             "timingSource": song.get("timingSource"),
+            "lyricsLookup": "failed" if lyrics_failed else "ok",
             "matched": cand.as_dict() if cand else None,
         }
 
