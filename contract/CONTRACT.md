@@ -154,7 +154,9 @@ interface Token {
 
 interface Card {
   id: string; songId: string; lineId: string; tokenId: string;
-  surface: string; kana: string; romaji: string; glossZh: string | null;
+  surface: string;        // dictionary form, e.g. 迷う
+  kana: string; romaji: string; glossZh: string | null;
+  asSung?: string | null; // what the lyric actually sings, e.g. 迷わ
   lineText: string;
   start: number; end: number;      // slice into the song
   sliceUrl: string;

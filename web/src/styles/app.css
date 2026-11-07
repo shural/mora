@@ -2320,6 +2320,31 @@ body:has(.song-shell) .toasts {
   background: var(--accent);
   transition: width 180ms var(--ease);
 }
+/* card navigation inside a review round */
+.review-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: -4px;
+}
+.btn--sm {
+  padding: 5px 11px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+.review-nav-count {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.review-nav-count b {
+  color: var(--text);
+  font-weight: 500;
+}
+.review-nav-skip {
+  margin-left: auto;
+}
+
 .review-progress-text {
   color: var(--dim);
   font-family: var(--font-mono);
@@ -2459,6 +2484,11 @@ body:has(.song-shell) .toasts {
   font-size: 30px;
   font-weight: 500;
   line-height: 1.3;
+}
+.answer-sung {
+  font-size: 20px;
+  color: var(--teal, #5eead4);
+  font-weight: 500;
 }
 .answer-kana {
   color: var(--text);

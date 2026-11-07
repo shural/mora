@@ -78,8 +78,9 @@ cd web && pnpm install && pnpm dev     # http://127.0.0.1:5173
 4. **Sing** — `歌う`: tempo 0.5×, A–B loop one phrase, and follow the ruler. Pitch never shifts
    when you slow it down.
 5. **Study** — `読む`: click any word for its reading, gloss, grammar note, naturalness. Save it.
-6. **Review** — `覚える`: the prompt is 1.5s of the actual vocal. You'll remember the word *and*
-   the song.
+6. **Review** — `覚える`: the prompt is ~3s of the actual vocal. Grade with `1`–`4` to advance,
+   `←`/`→` to browse the round, 跳过 to push a card to the back. Cards show the dictionary form
+   plus 歌里唱 when the lyric uses an inflected form (`迷う`, sung as `迷わ`).
 7. **Check yourself** — 🎤 on a line, sing it, read the mora diff.
 
 ## Under the hood

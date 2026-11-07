@@ -48,10 +48,13 @@ export interface Card {
   songId: string;
   lineId: string;
   tokenId: string;
+  /** dictionary form (what you study) */
   surface: string;
   kana: string;
   romaji: string;
   glossZh: string | null;
+  /** the form actually sung in the lyric, when it differs from `surface` */
+  asSung?: string | null;
   lineText: string;
   /** slice into the song */
   start: number;

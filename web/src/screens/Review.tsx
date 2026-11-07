@@ -34,6 +34,7 @@ export function Review({ song, onGoStudy }: Props) {
   const [sessionTotal, setSessionTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cursor, setCursor] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [grading, setGrading] = useState(false);
   const [nextDue, setNextDue] = useState<string | null>(null);
@@ -55,6 +56,7 @@ export function Review({ song, onGoStudy }: Props) {
       setCards(mine);
       const due = mine.filter(isDue);
       setQueue(due);
+      setCursor(0);
       setSessionTotal(due.length);
       setRevealed(false);
       setNextDue(null);
@@ -69,7 +71,11 @@ export function Review({ song, onGoStudy }: Props) {
     void load();
   }, [load]);
 
-  const current = queue[0];
+  const lastIndex = Math.max(0, queue.length - 1);
+  const index = Math.min(cursor, lastIndex);
+  const current = queue[index];
+  /** what is printed in the lyric line — the sung form, not the dictionary form */
+  const blankWord = current === undefined ? "" : current.asSung ?? current.surface;
   const reviewed = Math.max(0, sessionTotal - queue.length);
   const dueCount = useMemo(() => cards.filter(isDue).length, [cards]);
   const lineIndex = current === undefined
@@ -136,6 +142,7 @@ export function Review({ song, onGoStudy }: Props) {
           previous.map((card) => (card.id === updated.id ? updated : card)),
         );
         setQueue((previous) => previous.filter((card) => card.id !== updated.id));
+        setCursor((value) => Math.max(0, Math.min(value, Math.max(0, queue.length - 2))));
         setNextDue(formatDue(updated.due));
         setRevealed(false);
         toast(`下次复习：${formatDue(updated.due)}`, "success");
@@ -148,7 +155,24 @@ export function Review({ song, onGoStudy }: Props) {
     [current, grading, toast],
   );
 
-  // Keyboard: Space reveals, 1–4 grade, R replays.
+  const goTo = useCallback((next: number) => {
+    setCursor(Math.max(0, Math.min(queue.length - 1, next)));
+    setRevealed(false);
+  }, [queue.length]);
+
+  /** Move the current card to the back of this round instead of grading it. */
+  const skip = useCallback(() => {
+    if (queue.length < 2) return;
+    setQueue((previous) => {
+      const card = previous[index];
+      if (card === undefined) return previous;
+      return [...previous.filter((_, i) => i !== index), card];
+    });
+    setCursor(Math.max(0, Math.min(index, queue.length - 2)));
+    setRevealed(false);
+  }, [index, queue.length]);
+
+  // Keyboard: Space reveals, 1–4 grade, R replays, ←/→ browse.
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target)) return;
@@ -156,6 +180,16 @@ export function Review({ song, onGoStudy }: Props) {
       if (event.code === "Space") {
         event.preventDefault();
         if (current !== undefined) setRevealed(true);
+        return;
+      }
+      if (event.code === "ArrowLeft") {
+        event.preventDefault();
+        goTo(index - 1);
+        return;
+      }
+      if (event.code === "ArrowRight") {
+        event.preventDefault();
+        goTo(index + 1);
         return;
       }
       if (event.code === "KeyR") {
@@ -174,7 +208,7 @@ export function Review({ song, onGoStudy }: Props) {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [current, revealed, grade, replay]);
+  }, [current, revealed, grade, replay, goTo, index]);
 
   const startEarlyReview = () => {
     setQueue([...cards].sort((a, b) => a.due.localeCompare(b.due)));
@@ -223,6 +257,41 @@ export function Review({ song, onGoStudy }: Props) {
           </div>
         )}
       </div>
+
+      {!loading && error === null && queue.length > 0 && (
+        <div className="review-nav">
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            onClick={() => goTo(index - 1)}
+            disabled={index === 0}
+            aria-label="上一张"
+          >
+            ← 上一张
+          </button>
+          <span className="review-nav-count">
+            第 <b>{index + 1}</b> / {queue.length} 张
+          </span>
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            onClick={() => goTo(index + 1)}
+            disabled={index >= queue.length - 1}
+            aria-label="下一张"
+          >
+            下一张 →
+          </button>
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm review-nav-skip"
+            onClick={skip}
+            disabled={queue.length < 2}
+            title="跳过这张，放回本轮末尾"
+          >
+            跳过
+          </button>
+        </div>
+      )}
 
       {loading && (
         <div className="review-card review-card--skeleton" aria-hidden="true">
@@ -324,13 +393,11 @@ export function Review({ song, onGoStudy }: Props) {
           </p>
 
           <p className="review-line" lang="ja">
-            {current.surface !== "" && current.lineText.includes(current.surface) ? (
+            {blankWord !== "" && current.lineText.includes(blankWord) ? (
               <>
-                {current.lineText.slice(0, current.lineText.indexOf(current.surface))}
+                {current.lineText.slice(0, current.lineText.indexOf(blankWord))}
                 <span className="blank">＿＿＿</span>
-                {current.lineText.slice(
-                  current.lineText.indexOf(current.surface) + current.surface.length,
-                )}
+                {current.lineText.slice(current.lineText.indexOf(blankWord) + blankWord.length)}
               </>
             ) : (
               <>
@@ -364,6 +431,14 @@ export function Review({ song, onGoStudy }: Props) {
                   <span className="answer-label">罗马音</span>
                   <span className="answer-romaji">{current.romaji !== "" ? current.romaji : "—"}</span>
                 </div>
+                {current.asSung != null && current.asSung !== "" && (
+                  <div className="answer-cell">
+                    <span className="answer-label">歌里唱</span>
+                    <span className="answer-sung" lang="ja">
+                      {current.asSung}
+                    </span>
+                  </div>
+                )}
                 <div className="answer-cell">
                   <span className="answer-label">释义</span>
                   <span className="answer-gloss">{current.glossZh ?? "暂无释义"}</span>
@@ -393,6 +468,7 @@ export function Review({ song, onGoStudy }: Props) {
       <p className="review-foot">
         <kbd>空格</kbd> 显示答案 <span className="meta-dot" aria-hidden="true" />
         <kbd>1</kbd>–<kbd>4</kbd> 评分 <span className="meta-dot" aria-hidden="true" />
+        <kbd>←</kbd> <kbd>→</kbd> 切换卡片 <span className="meta-dot" aria-hidden="true" />
         <kbd>R</kbd> 重播
         {mock && (
           <>
