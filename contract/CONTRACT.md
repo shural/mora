@@ -146,6 +146,9 @@ interface Token {
   pos: string;         // 名詞 / 動詞 / 助詞 / 記号 ...
   dictForm: string | null;
   glossZh: string | null;
+  /** grammatical role in Chinese for particles/auxiliaries that have no gloss:
+   *  が=主语, の=的・所属, な=…的（连体形）, て=连接（て形） ... */
+  role?: string | null;
   naturalness: Naturalness | null;
   note: string | null;
   flags: ("ateji" | "jodai" | "rare-reading" | "kanji-trap")[];

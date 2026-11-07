@@ -24,6 +24,8 @@ export interface Token {
   pos: string;
   dictForm: string | null;
   glossZh: string | null;
+  /** grammatical role in Chinese, for particles/auxiliaries with no gloss */
+  role?: string | null;
   naturalness: Naturalness | null;
   note: string | null;
   flags: TokenFlag[];
@@ -38,6 +40,8 @@ export interface Line {
   /** seconds; -1 when unsynced */
   end: number;
   glossZh: string | null;
+  /** grammatical role in Chinese, for particles/auxiliaries with no gloss */
+  role?: string | null;
   naturalness: Naturalness | null;
   note: string | null;
   tokens: Token[];

@@ -3,6 +3,7 @@ import { annotate, createCard, deleteCard, getSong, patchToken } from "../api";
 import type { Line, Song, Token } from "../types";
 import { FLAG_LABEL } from "../types";
 import { useJobPoller } from "../hooks/useJobPoller";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useRuntimeMode } from "../hooks/useRuntimeMode";
 import { useToast } from "../components/Toast";
 import { JobProgress } from "../components/JobProgress";
@@ -28,6 +29,37 @@ function firstMeaningfulToken(song: Song): Selected | null {
   return null;
 }
 
+
+const CONTENT_HEADS = new Set([
+  "名詞", "代名詞", "動詞", "形容詞", "形状詞", "副詞", "連体詞", "接頭辞", "接尾辞",
+]);
+
+const POS_LABEL: Record<string, string> = {
+  名詞: "名词", 代名詞: "代词", 動詞: "动词", 形容詞: "形容词", 形状詞: "形容动词",
+  副詞: "副词", 連体詞: "连体词", 接続詞: "接续词", 感動詞: "感叹词",
+  助詞: "助词", 助動詞: "助动词", 接頭辞: "前缀", 接尾辞: "后缀", 記号: "标点",
+};
+
+function posHead(token: Token): string {
+  return token.pos.split("-")[0] ?? token.pos;
+}
+
+function isContentWord(token: Token): boolean {
+  return CONTENT_HEADS.has(posHead(token));
+}
+
+/** Bunsetsu-ish grouping: particles/auxiliaries stick to the word before them,
+ *  so すべてが / 君と / 僕と / の / 愛の / 構えさ reads as phrases, not tokens. */
+function groupTokens(tokens: Token[]): Token[][] {
+  const groups: Token[][] = [];
+  for (const token of tokens) {
+    if (token.morae.length === 0) continue; // punctuation stays out of the strip
+    if (groups.length === 0 || isContentWord(token)) groups.push([token]);
+    else groups[groups.length - 1]?.push(token);
+  }
+  return groups;
+}
+
 interface Props {
   song: Song;
   onSongChange: (song: Song) => void;
@@ -43,6 +75,7 @@ export function Study({ song, onSongChange }: Props) {
   const [reading, setReading] = useState<string | null>(null);
   const [readingError, setReadingError] = useState<string | null>(null);
   const annotateJob = useJobPoller();
+  const [showWords, setShowWords] = useLocalStorage("mora.study.wordStrip", true);
   const panelRef = useRef<HTMLElement | null>(null);
   const lyricsRef = useRef<HTMLElement | null>(null);
   const { toast } = useToast();
@@ -168,6 +201,15 @@ export function Study({ song, onSongChange }: Props) {
           </span>
         </div>
         <div className="study-tools">
+          <button
+            type="button"
+            className={cn("btn btn--ghost btn--small", showWords && "is-on")}
+            onClick={() => setShowWords((value) => !value)}
+            aria-pressed={showWords}
+            title="在每句歌词下面摊开每个词的中文意思"
+          >
+            逐词释义
+          </button>
           <JobProgress job={annotateJob.job} error={annotateJob.error} running={annotateJob.running} />
           <button
             type="button"
@@ -183,7 +225,11 @@ export function Study({ song, onSongChange }: Props) {
 
       <div className="study-grid">
         <section className="study-lyrics" aria-label="歌词与注释" ref={lyricsRef}>
-          <p className="study-tip">点任意一个词，查看它的读音、词性和语气。</p>
+          <p className="study-tip">
+            {showWords
+              ? "每句下面摊开了所有词：实词是意思，助词标出它连接的关系。点任意一个词看读音和语气。"
+              : "点任意一个词，查看它的读音、词性和语气。"}
+          </p>
           {song.lines.map((line, lineIndex) => (
             <article
               className={cn(
@@ -216,6 +262,35 @@ export function Study({ song, onSongChange }: Props) {
                     </button>
                   ))}
                 </p>
+                {showWords && (
+                  <div className="word-strip">
+                    {groupTokens(line.tokens).map((group, groupIndex) => (
+                      <span className="word-group" key={`${line.id}-g${groupIndex}`}>
+                        {group.map((token) => (
+                          <button
+                            key={token.id}
+                            type="button"
+                            className={cn(
+                              "word-chip",
+                              isContentWord(token) ? "word-chip--content" : "word-chip--glue",
+                              selected !== null && selected.token.id === token.id && "is-selected",
+                              token.saved && "is-saved",
+                            )}
+                            onClick={() => selectToken(token.id)}
+                            title={`${token.kana || token.surface}${token.romaji ? ` · ${token.romaji}` : ""}`}
+                          >
+                            <span className="word-chip-jp" lang="ja">
+                              {token.surface}
+                            </span>
+                            <span className="word-chip-zh">
+                              {token.glossZh ?? token.role ?? POS_LABEL[posHead(token)] ?? ""}
+                            </span>
+                          </button>
+                        ))}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {line.glossZh !== null && <p className="study-gloss">{line.glossZh}</p>}
               </div>
             </article>

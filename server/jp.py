@@ -292,6 +292,81 @@ KANJI_TRAPS: dict[str, str] = {
 _PUNCT_POS = {"記号", "補助記号", "空白", "句点", "読点", "括弧開", "括弧閉", "一般"}
 
 
+
+# ---------------------------------------------------------------- word roles
+# Particles and auxiliaries are the glue showing how a line's words relate, but
+# they have no dictionary gloss. Give each a short Chinese role so a beginner can
+# read the whole line as a sentence instead of a bag of nouns.
+
+PARTICLE_ROLES: dict[str, str] = {
+    "は": "主题（至于…）", "が": "主语", "を": "宾语", "に": "对象・时间・地点",
+    "で": "地点・手段", "と": "和・引用", "へ": "朝向", "も": "也", "の": "的・所属",
+    "から": "从・因为", "まで": "到", "より": "比", "や": "…等", "か": "疑问",
+    "ね": "吧（求认同）", "よ": "呀（提醒）", "な": "啊／别", "わ": "语气", "ぞ": "强调",
+    "ぜ": "强调", "って": "引用・话题", "など": "之类", "なんか": "之类的",
+    "しか": "只（接否定）／文语过去", "だけ": "只有", "ばかり": "光是", "ほど": "程度",
+    "くらい": "大约", "ぐらい": "大约", "ながら": "一边…一边", "ので": "因为",
+    "のに": "却", "けど": "但是", "けれど": "但是", "ても": "即使", "でも": "即使／但是",
+    "ば": "如果", "し": "并列", "て": "连接（て形）", "たり": "又…又…",
+    "さ": "语气（强调）", "かな": "吧", "かも": "也许", "こそ": "正是", "とか": "之类",
+    "とも": "也好…", "ばかりか": "岂止",
+}
+
+AUX_ROLES: dict[str, str] = {
+    "な": "…的（连体形）", "だ": "断定（是）", "です": "是（礼貌）", "ます": "礼貌",
+    "た": "过去", "ない": "否定", "ぬ": "否定", "ん": "否定／强调", "ず": "否定",
+    "たい": "想", "れる": "被动／可能", "られる": "被动／可能", "せる": "使役",
+    "させる": "使役", "う": "意志／推测", "よう": "意志／推测", "だろう": "大概",
+    "でしょう": "大概", "らしい": "似乎", "みたい": "像", "そう": "好像",
+    "き": "过去（文语）", "まい": "不会吧", "べき": "应该", "わけ": "道理／当然",
+    "で": "中顿（…而）", "なき": "否定（文语）",
+}
+
+# 形状詞-助動詞語幹: 「ような」「そうな」 — manner, not a predicate
+AUXSTEM_ROLES: dict[str, str] = {
+    "よう": "像…一样", "そう": "好像", "みたい": "像", "らしい": "似乎",
+    "べき": "应该", "わけ": "道理／当然", "はず": "应该", "つもり": "打算",
+    "まま": "就那样", "ため": "为了／因为",
+}
+
+POS_ROLES: dict[str, str] = {
+    "助詞": "助词", "助動詞": "助动词", "接続詞": "接续词",
+    "接頭辞": "前缀", "接尾辞": "后缀", "感動詞": "感叹词",
+}
+
+# content words: these are what the line is *about*
+CONTENT_POS = {"名詞", "代名詞", "動詞", "形容詞", "形状詞", "副詞", "連体詞", "接頭辞", "接尾辞"}
+
+
+def pos_head(token: dict[str, Any]) -> str:
+    return str(token.get("pos") or "").split("-")[0]
+
+
+def role_of(token: dict[str, Any]) -> str | None:
+    """Short Chinese grammatical role for a function word."""
+    head = pos_head(token)
+    surface = str(token.get("surface") or "")
+    if "助動詞語幹" in str(token.get("pos") or ""):
+        return AUXSTEM_ROLES.get(surface)
+    if head == "助動詞":
+        return AUX_ROLES.get(surface) or AUX_ROLES.get(str(token.get("dictForm") or "")) or POS_ROLES.get(head)
+    if head == "助詞":
+        return PARTICLE_ROLES.get(surface) or PARTICLE_ROLES.get(str(token.get("dictForm") or "")) or POS_ROLES.get(head)
+    if head in CONTENT_POS:
+        return None
+    return POS_ROLES.get(head)
+
+
+def apply_roles(tokens: list[dict[str, Any]]) -> None:
+    """Fill `role` for function words (never touch a real gloss)."""
+    for token in tokens:
+        if token.get("glossZh"):
+            continue
+        role = role_of(token)
+        if role:
+            token["role"] = role
+
+
 # ---------------------------------------------------------------- tokenizer
 
 _tagger = None
@@ -393,6 +468,7 @@ def tokenize_line(text: str, line_id: str) -> list[dict[str, Any]]:
             "flags": flags,
             "saved": False,
         })
+    apply_roles(toks)
     return toks
 
 

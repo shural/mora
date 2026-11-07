@@ -1963,6 +1963,81 @@ body:has(.song-shell) .toasts {
   border-radius: 50%;
   background: var(--green);
 }
+/* 逐词释义: the whole line broken into words, particles glued to their phrase */
+.word-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.05);
+}
+.word-group {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1px;
+  padding: 3px 5px 4px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.022);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.045);
+}
+.word-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 2px 5px 1px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  transition: background var(--transition), box-shadow var(--transition);
+}
+.word-chip:hover {
+  background: rgba(255, 255, 255, 0.055);
+}
+.word-chip.is-selected {
+  background: rgba(94, 234, 212, 0.13);
+  box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.4);
+}
+.word-chip-jp {
+  font-size: 15.5px;
+  line-height: 1.25;
+  color: var(--text);
+  white-space: nowrap;
+}
+.word-chip-zh {
+  font-size: 10.5px;
+  line-height: 1.25;
+  color: var(--muted);
+  white-space: nowrap;
+  max-width: 11em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.word-chip--glue .word-chip-jp {
+  font-size: 12.5px;
+  color: var(--dim);
+}
+.word-chip--glue .word-chip-zh {
+  font-size: 9.5px;
+  color: var(--dim);
+}
+.word-chip--content .word-chip-zh {
+  color: #a9b4c6;
+}
+.word-chip.is-saved .word-chip-jp::after {
+  content: "·";
+  color: var(--accent);
+  margin-left: 2px;
+}
+.btn.is-on {
+  color: var(--teal, #5eead4);
+  border-color: rgba(94, 234, 212, 0.35);
+  background: rgba(94, 234, 212, 0.08);
+}
+
 .study-gloss {
   margin-top: 4px;
   color: var(--dim);

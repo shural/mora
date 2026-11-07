@@ -67,7 +67,15 @@ def get_song(song_id: str) -> dict[str, Any]:
     if not p.exists():
         raise KeyError(song_id)
     with _lock:
-        return json.loads(p.read_text("utf-8"))
+        song = json.loads(p.read_text("utf-8"))
+    # older songs were tokenized before word roles existed — fill them on read
+    try:
+        from . import jp
+        for line in song.get("lines", []):
+            jp.apply_roles(line.get("tokens") or [])
+    except Exception:  # noqa: BLE001
+        pass
+    return song
 
 
 def list_songs() -> list[dict[str, Any]]:

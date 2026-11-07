@@ -18,7 +18,7 @@ OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma4:31b-cloud")
 TIMEOUT = int(os.environ.get("OLLAMA_TIMEOUT", "240"))
 
-CONTENT_POS = {"名詞", "動詞", "形容詞", "形状詞", "副詞", "連体詞", "感動詞", "接頭辞", "接尾辞"}
+CONTENT_POS = {"名詞", "代名詞", "動詞", "形容詞", "形状詞", "副詞", "連体詞", "感動詞", "接頭辞", "接尾辞"}
 
 SYSTEM = (
     "你是日语歌词教学助手，服务中文母语的日语学习者（N4~N3 水平）。"
