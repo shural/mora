@@ -203,6 +203,37 @@ def _search_artist(artist: str) -> str:
     return re.sub(r"\s+", " ", a).strip(" /-") or (artist or "")
 
 
+
+def _norm_id(text: str) -> str:
+    return re.sub(r"[\s\u3000\u30fb・.,'\"!?！？()（）\[\]【】&/\-–—〜:：]+", "",
+                  unicodedata.normalize("NFKC", text or "").lower())
+
+
+def _find_existing(cand: Any) -> dict[str, Any] | None:
+    """Same song already in the library?
+
+    Dedupe by song identity, not video id: the same title resolves to different
+    uploads on different days, and re-adding must not create a second copy.
+    """
+    want_t = _norm_id(cand.title)
+    if not want_t:
+        return None
+    want_a = _norm_id(_search_artist(cand.artist))
+    for row in store.list_songs():
+        got_t = _norm_id(row.get("title") or "")
+        if not got_t:
+            continue
+        if not (got_t == want_t or got_t.startswith(want_t) or want_t.startswith(got_t)):
+            continue
+        got_a = _norm_id(row.get("artist") or "")
+        if not want_a or not got_a:
+            return row
+        if got_a == want_a or got_a in want_a or want_a in got_a:
+            return row
+    return None
+
+
+
 def _apply_lyrics(song: dict[str, Any], cand: Any) -> None:
     """Turn a lyric candidate (timestamped LRC) into song lines."""
     texts = [str(r["text"]) for r in cand.lines]
@@ -383,6 +414,13 @@ def ingest(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
                 print("lyrics resolve failed:", e)
             if cand:
                 progress(12, f"找到：{cand.title} — {cand.artist}")
+
+        if cand:
+            dupe = _find_existing(cand)
+            if dupe and not payload.get("force"):
+                progress(100, f"曲库里已经有：{dupe['title']}")
+                return {"songId": dupe["id"], "title": dupe["title"], "artist": dupe["artist"],
+                        "lines": dupe["linesTotal"], "existing": True}
 
         audio_query = f"{_search_artist(cand.artist)} {cand.title}".strip() if cand else query
         try:
