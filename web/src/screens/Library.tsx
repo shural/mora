@@ -84,7 +84,7 @@ export function Library() {
       </header>
 
       <section className="hero">
-        <p className="eyebrow">LOCAL · 日语歌曲学习</p>
+        <p className="eyebrow">本机 · 日语歌曲学习</p>
         <h1 className="hero-title">
           把想唱的日文歌，
           <br />

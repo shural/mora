@@ -1,5 +1,5 @@
 import type { Naturalness } from "../types";
-import { NATURALNESS_DOT, NATURALNESS_LABEL } from "../types";
+import { NATURALNESS_LABEL } from "../types";
 import { cn } from "../lib/cn";
 
 export function NaturalnessDot({
@@ -25,9 +25,6 @@ export function NaturalnessBadge({ value }: { value: Naturalness | null }) {
     <span className={cn("nat-badge", `nat-badge--${value}`)}>
       <span className="nat-badge-dot" aria-hidden="true" />
       {NATURALNESS_LABEL[value]}
-      <span className="nat-badge-emoji" aria-hidden="true">
-        {NATURALNESS_DOT[value]}
-      </span>
     </span>
   );
 }

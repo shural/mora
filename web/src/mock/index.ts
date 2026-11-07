@@ -535,7 +535,7 @@ export const mockApi = {
     const score =
       targetKana.length > 0 ? Math.round((equal / Array.from(targetKana).length) * 100) : 0;
     const moraeTotal = targetMorae.length;
-    const moraeOk = Math.max(0, moraeTotal - (heardMorae.length < moraeTotal ? 1 : 0));
+    const moraeOk = Math.max(0, moraeTotal - 1);
     const hint =
       score >= 90
         ? "很稳，长音再拖满一点就更好了。"

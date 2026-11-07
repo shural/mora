@@ -343,7 +343,7 @@ export function Review({ song, onGoStudy }: Props) {
           {!revealed ? (
             <button type="button" className="reveal-btn" onClick={() => setRevealed(true)}>
               显示答案
-              <kbd>Space</kbd>
+              <kbd>空格</kbd>
             </button>
           ) : (
             <div className="review-answer">
@@ -391,7 +391,7 @@ export function Review({ song, onGoStudy }: Props) {
       )}
 
       <p className="review-foot">
-        <kbd>Space</kbd> 显示答案 <span className="meta-dot" aria-hidden="true" />
+        <kbd>空格</kbd> 显示答案 <span className="meta-dot" aria-hidden="true" />
         <kbd>1</kbd>–<kbd>4</kbd> 评分 <span className="meta-dot" aria-hidden="true" />
         <kbd>R</kbd> 重播
         {mock && (

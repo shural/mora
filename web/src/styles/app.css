@@ -307,7 +307,7 @@
   height: 100%;
   border-radius: 99px;
   background: linear-gradient(90deg, var(--accent), #ffa1bb);
-  transition: width 320ms var(--ease);
+  transition: width 180ms var(--ease);
 }
 .job--error {
   flex-direction: row;
@@ -322,6 +322,9 @@
 }
 
 /* ── Toasts ────────────────────────────────────────────────────────────── */
+body:has(.song-shell) .toasts {
+  bottom: 128px;
+}
 .toasts {
   position: fixed;
   left: 50%;

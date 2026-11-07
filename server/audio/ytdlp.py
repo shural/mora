@@ -177,7 +177,14 @@ def probe(url: str) -> dict:
         failure["reason"] = str(exc)
         return failure
     try:
-        return _probe_ytdlp(target)
+        result = _probe_ytdlp(target)
+        if not str(result.get("webpage_url") or "").strip():
+            # e.g. a Bilibili search entry whose %(url)s field came back empty:
+            # fail loudly instead of handing the ingest layer an unusable result.
+            raise AudioError(
+                "yt-dlp probe returned a video without a usable URL (empty search result)"
+            )
+        return result
     except AudioError as exc:
         failure["reason"] = str(exc)
         if _is_bilibili(target):

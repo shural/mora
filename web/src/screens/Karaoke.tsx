@@ -125,7 +125,7 @@ export function Karaoke({ song, onSongChange, mock }: Props) {
       (elementRect.top - containerRect.top) -
       (containerRect.height - elementRect.height) / 2;
     container.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
-  }, [active.index, song.lines]);
+  }, [active.index, song.lines, singLine]);
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -551,7 +551,7 @@ export function Karaoke({ song, onSongChange, mock }: Props) {
             </div>
 
             <div className="shortcut-hint">
-              <kbd>Space</kbd> 播放
+              <kbd>空格</kbd> 播放
               <span className="meta-dot" aria-hidden="true" />
               <kbd>←</kbd>
               <kbd>→</kbd> 跳转
