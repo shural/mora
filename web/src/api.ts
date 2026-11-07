@@ -68,27 +68,83 @@ export function enableMockFallback(): void {
   setRuntimeMode("mock");
 }
 
+const PING_PATH = "/api/ping";
+
+/** One cheap liveness probe. Never throws. */
+async function pingOnce(timeoutMs = 2500): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(PING_PATH, {
+      signal: controller.signal,
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    return response.ok;
+  } catch {
+    return false;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+let watchTimer: number | undefined;
+
+/** While stuck in demo mode, keep asking. Recovery must not need a page reload. */
+export function startBackendWatch(): void {
+  if (USE_MOCK || watchTimer !== undefined) return;
+  watchTimer = window.setInterval(() => {
+    if (!mockFallback) {
+      stopBackendWatch();
+      return;
+    }
+    void pingOnce(2000).then((alive) => {
+      if (!alive) return;
+      // Demo mode has been rendering fake songs and writing nothing; reload so
+      // every view refetches against the real backend instead of leaving a
+      // stale demo page behind a vanished banner.
+      stopBackendWatch();
+      mockFallback = false;
+      window.location.reload();
+    });
+  }, 4000);
+}
+
+export function stopBackendWatch(): void {
+  if (watchTimer !== undefined) {
+    window.clearInterval(watchTimer);
+    watchTimer = undefined;
+  }
+}
+
+/** Manual retry from the banner: probe now, no full page reload. */
+export async function reconnectBackend(): Promise<boolean> {
+  const alive = await pingOnce(3000);
+  if (alive) {
+    stopBackendWatch();
+    mockFallback = false;
+    window.location.reload();
+  }
+  return alive;
+}
+
 /** Called once at boot in production builds. Never throws. */
 export async function detectBackend(): Promise<RuntimeMode> {
   if (USE_MOCK) return "mock";
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 1600);
-  try {
-    const response = await fetch("/api/health", {
-      signal: controller.signal,
-      headers: { Accept: "application/json" },
-    });
-    if (response.ok) {
+  // A dev server restart, a busy ingest job or a slow disk must not condemn the
+  // session to demo mode: retry with backoff before giving up.
+  for (const delay of [0, 350, 900, 1800]) {
+    if (delay > 0) await new Promise((resolve) => window.setTimeout(resolve, delay));
+    if (await pingOnce()) {
+      mockFallback = false;
+      stopBackendWatch();
       setRuntimeMode("live");
       return "live";
     }
-  } catch {
-    // fall through to mock
-  } finally {
-    window.clearTimeout(timeout);
   }
   mockFallback = true;
   setRuntimeMode("mock");
+  startBackendWatch();
   return "mock";
 }
 

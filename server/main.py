@@ -7,6 +7,7 @@ import re
 import shutil
 import tempfile
 import threading
+import time as _time
 import traceback
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -93,28 +94,45 @@ def _require_audio() -> Any:
 
 # ------------------------------------------------------------------ health
 
+_health_cache: dict[str, tuple[float, Any]] = {}
+
+
+def _cached_health(key: str, ttl: float, fn: Callable[[], Any]) -> Any:
+    """Health probes spawn subprocesses and hit Ollama; a browser boot check must
+    not wait for them. Cache, and expose /api/ping for pure liveness."""
+    hit = _health_cache.get(key)
+    if hit and _time.time() - hit[0] < ttl:
+        return hit[1]
+    try:
+        value = fn()
+    except Exception as e:  # noqa: BLE001
+        value = {"ok": False, "reason": str(e)}
+    _health_cache[key] = (_time.time(), value)
+    return value
+
+
+
+def _tokenizer_health() -> dict[str, Any]:
+    jp.tagger()("テスト")
+    return {"ok": True, "engine": "fugashi+unidic-lite"}
+
+@app.get("/api/ping")
+def ping() -> dict[str, Any]:
+    """Cheap liveness check. No subprocesses, no network, never fails."""
+    return {"ok": True, "app": "mora"}
+
+
 @app.get("/api/health")
 def health() -> dict[str, Any]:
-    au = {}
-    if audio_mod is not None:
-        try:
-            au = audio_mod.health()
-        except Exception as e:  # noqa: BLE001
-            au = {"ok": False, "reason": str(e)}
-    else:
-        au = {"ok": False, "reason": _AUDIO_IMPORT_ERROR}
-    tok = {}
-    try:
-        jp.tagger()("テスト")
-        tok = {"ok": True, "engine": "fugashi+unidic-lite"}
-    except Exception as e:  # noqa: BLE001
-        tok = {"ok": False, "reason": str(e)}
+    au = _cached_health("audio", 60.0, lambda: audio_mod.health() if audio_mod is not None
+                        else {"ok": False, "reason": _AUDIO_IMPORT_ERROR})
+    tok = _cached_health("tokenizer", 300.0, _tokenizer_health)
     return {
         "ok": bool(au.get("ok")) and tok.get("ok", False),
         "media": au,
         "tokenizer": tok,
-        "ollama": annotate.health(),
-        "lyrics": lyrics.health(),
+        "ollama": _cached_health("ollama", 30.0, annotate.health),
+        "lyrics": _cached_health("lyrics", 120.0, lyrics.health),
         "version": "0.1.0",
     }
 

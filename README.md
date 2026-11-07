@@ -105,6 +105,21 @@ Two deliberate choices worth knowing:
 - **Nothing is a hard dependency.** No Ollama → no glosses, everything else works. No whisper →
   no sing-back, no ASR sync, everything else works. The app degrades, it doesn't break.
 
+## If you see 「演示数据」 / 本地后端没有响应
+
+The Python side isn't reachable, so the app switched to demo data (fully clickable,
+writes nothing to disk). Fix: make sure the server is running.
+
+```bash
+cd mora && ./run.sh          # or, if it is already installed:
+.venv/bin/python -m uvicorn server.main:app --port 8787
+```
+
+It now recovers by itself: the boot probe retries with backoff, `/api/ping` answers in
+~1ms (the detailed `/api/health` spawns `yt-dlp`, `ffmpeg` and an Ollama call, so it is
+cached and is *not* used for liveness), and while in demo mode the page re-probes every
+4s and reloads once the backend returns. `scripts/test_fallback.py` proves both halves.
+
 ## What is experimental
 
 - Sing-back is judged by speech recognition on *singing*, which is genuinely hard. Treat it as a
