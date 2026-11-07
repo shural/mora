@@ -129,6 +129,21 @@ def ensure_card(song: dict[str, Any], line_id: str, token_id: str) -> dict[str, 
             return c
     # Cut a ~3s window centred on where this word is actually sung, not the
     # whole line: a 14s prompt is not a flashcard, it's a listening exercise.
+    # Card headword = dictionary form. The song sings 迷わ (the -zu form of 迷う);
+    # a flashcard should teach 迷う, with the sung form kept alongside.
+    head_surface, head_kana, head_romaji = tok["surface"], tok["kana"], tok["romaji"]
+    lemma = tok.get("dictForm")
+    if lemma and lemma != tok["surface"]:
+        try:
+            from . import jp
+            parts = jp.tokenize_line(str(lemma), "c")
+            if len(parts) == 1 and parts[0].get("kana"):
+                head_surface = str(lemma)
+                head_kana = parts[0]["kana"]
+                head_romaji = parts[0]["romaji"]
+        except Exception:  # noqa: BLE001
+            pass
+
     start, end = 0.0, 1.5
     if float(line["start"]) >= 0 and float(line["end"]) > float(line["start"]):
         idx = next(i for i, t in enumerate(line["tokens"]) if t["id"] == token_id)
@@ -148,9 +163,10 @@ def ensure_card(song: dict[str, Any], line_id: str, token_id: str) -> dict[str, 
         "songId": song["id"],
         "lineId": line_id,
         "tokenId": token_id,
-        "surface": tok["surface"],
-        "kana": tok["kana"],
-        "romaji": tok["romaji"],
+        "surface": head_surface,
+        "kana": head_kana,
+        "romaji": head_romaji,
+        "asSung": tok["surface"] if head_surface != tok["surface"] else None,
         "glossZh": tok.get("glossZh"),
         "lineText": line["text"],
         "start": round(start, 2),

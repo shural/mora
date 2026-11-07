@@ -123,6 +123,7 @@ interface Song {
   lyricsSource?: "qq" | "captions" | "pasted" | "none";
   timingSource?: "lrc" | "asr-mora" | "asr" | "captions" | "none";
   matchedFrom?: { title: string; artist: string; source: string; duration: number };
+  offsetCalibration?: { raw: number; best: number; offset: number; lines: number };
   cards: Card[];
   lines: Line[];
 }

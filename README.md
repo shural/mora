@@ -68,7 +68,12 @@ cd web && pnpm install && pnpm dev     # http://127.0.0.1:5173
    also paste a URL if you have an exact video in mind.
 2. **Paste the lyrics** — in `読む` → 编辑歌词. (Automatic captions are a rough machine transcript,
    real lyrics always beat them; pasting also fixes 当て字 readings for the whole song.)
-3. **Sync** — try 自动同步 (subtitles → or whisper on the audio), then fix by hand with
+3. **Check the sync** — when lyrics come from a catalogue they arrive timestamped, but from
+   a *different master* than the video, so the app measures the shift itself: it compares the
+   sung morae against the lyric morae across every line and sweeps for a global offset
+   (−0.6s on SAY YES, 0.0s on First Love). If the correlation is weak it leaves the timeline
+   alone rather than "fixing" it into nonsense. `scripts/verify_sync.py <song_id>` shows the
+   per-line match if you want the receipts. Then fix by hand with
    `⌨ tap-sync`: press Space as each line starts. Takes ~20s for a whole song and never drifts.
 4. **Sing** — `歌う`: tempo 0.5×, A–B loop one phrase, and follow the ruler. Pitch never shifts
    when you slow it down.
@@ -86,6 +91,7 @@ server/annotate.py     Ollama → 中译 · 自然度 · 语法注 · 词义   (
 server/audio/         yt-dlp (YouTube android-client retry) · Bilibili API fallback · ffmpeg
                       · faster-whisper (word timings) · caption parser
 server/kana_diff.py   mora-level SequenceMatcher + plain-language hints
+server/lyrics.py      song name -> timestamped lyrics (QQ Music), JP/credit filtering
 server/store.py       one JSON doc per song under data/songs/<id>/
 server/main.py        FastAPI: ingest/annotate/autosync as pollable jobs
 web/                  Vite + React + TS, dark karaoke UI

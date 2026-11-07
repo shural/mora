@@ -1,6 +1,7 @@
 """Mora (モーラ) backend — FastAPI app."""
 from __future__ import annotations
 
+import difflib
 import json
 import re
 import shutil
@@ -241,6 +242,80 @@ def _timings_ok(lines: list[dict[str, Any]], duration: float, ref_duration: floa
     return True
 
 
+
+def _mora_ratio(expected: list[str], heard: list[str]) -> float:
+    if not expected:
+        return 0.0
+    norm = lambda m: "う" if m == "ー" else m
+    return difflib.SequenceMatcher(
+        a=[norm(x) for x in expected], b=[norm(x) for x in heard], autojunk=False
+    ).ratio()
+
+
+def _calibrate_offset(au: Any, song: dict[str, Any],
+                      progress: Callable[[float, str], None] | None = None) -> float:
+    """Measure how far the lyric timeline is from *this* audio file, and fix it.
+
+    Lyric timestamps come from a streaming master; the video we downloaded is a
+    different master. The error is a constant shift (0.6s on SAY YES, 0.0s on
+    First Love), so we correlate the sung morae against the lyric morae and
+    sweep. Whisper's word timings are not exact, but across 25+ lines a global
+    shift stands out far above the noise — and if the correlation is weak we
+    leave the timeline alone rather than "correcting" it into nonsense.
+    """
+    path = store.audio_path(song["id"])
+    lines = [l for l in song["lines"] if any(t.get("morae") for t in l["tokens"])]
+    if not path or len(lines) < 6:
+        return 0.0
+    if progress:
+        progress(86, "校验对时：和演唱位置比对（约 15 秒）…")
+    try:
+        result = au.transcribe(path, language="ja")
+    except Exception as e:  # noqa: BLE001
+        print("offset calibration skipped:", e)
+        return 0.0
+
+    heard = _heard_morae(result)
+    pairs = list(zip(*heard)) if heard and heard[0] else []
+    if len(pairs) < 40:
+        return 0.0
+    expected = [[m for t in l["tokens"] for m in (t.get("morae") or [])] for l in lines]
+
+    def score(off: float) -> float:
+        total = 0.0
+        for line, exp in zip(lines, expected):
+            lo, hi = float(line["start"]) + off, float(line["end"]) + off
+            got = [m for m, t in pairs if lo <= t < hi]
+            total += _mora_ratio(exp, got)
+        return total / len(lines)
+
+    base = score(0.0)
+    best_off, best = 0.0, base
+    for i in range(-20, 21):
+        off = round(i * 0.1, 2)
+        if off == 0.0:
+            continue
+        sc = score(off)
+        if sc > best:
+            best, best_off = sc, off
+
+    applied = 0.0
+    if base >= 0.50 and (best - base) >= 0.03 and abs(best_off) >= 0.2:
+        applied = best_off
+        song["offset"] = best_off
+    song["offsetCalibration"] = {
+        "raw": round(base, 4),
+        "best": round(best, 4),
+        "offset": applied,
+        "lines": len(lines),
+    }
+    if progress:
+        msg = (f"对时偏差 {applied:+.1f}s 已修正" if applied
+               else f"对时正常（匹配 {base * 100:.0f}%）")
+        progress(92, msg)
+    return applied
+
+
 def _align_lines_to_audio(au: Any, song: dict[str, Any],
                           progress: Callable[[float, str], None] | None = None) -> str:
     """Set line times from captions, else from where the vocal actually is."""
@@ -375,6 +450,8 @@ def ingest(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
                     _align_lines_to_audio(au, song, progress)
                 except Exception as e:  # noqa: BLE001
                     print("alignment after lrc failed:", e)
+            else:
+                _calibrate_offset(au, song, progress)
 
         if not song["lines"]:
             progress(80, "没有可用歌词，尝试视频字幕…")
@@ -421,6 +498,226 @@ def get_job(job_id: str) -> dict[str, Any]:
         raise HTTPException(404, "任务不存在")
     return job
 
+
+# ------------------------------------------------------------------ sung-time mapping
+
+
+def _heard_morae(result: dict[str, Any]) -> tuple[list[str], list[float]]:
+    """Flatten ASR output into (mora, start_time) pairs, in order."""
+    morae: list[str] = []
+    times: list[float] = []
+    for seg in result.get("segments") or []:
+        words = seg.get("words") or []
+        if words:
+            units = [(w.get("start"), w.get("end"), w.get("word")) for w in words]
+        else:
+            units = [(seg.get("start"), seg.get("end"), seg.get("text"))]
+        for a, b, text in units:
+            try:
+                a, b = float(a), float(b)
+            except (TypeError, ValueError):
+                continue
+            ks = kana_diff.morae_of_text(str(text or ""))
+            if not ks:
+                continue
+            span = max(1e-3, b - a)
+            step = span / len(ks)
+            for i, k in enumerate(ks):
+                morae.append(k)
+                times.append(a + step * i)
+    return morae, times
+
+
+def _nw_pairs(a: list[str], b: list[str]) -> list[tuple[int, int]]:
+    """Monotonic alignment (Needleman-Wunsch). Returns matched index pairs."""
+    n, m = len(a), len(b)
+    if n == 0 or m == 0:
+        return []
+    prev = list(range(m + 1))
+    back = [bytearray(m + 1) for _ in range(n + 1)]  # 0 diag 1 up 2 left
+    for j in range(m + 1):
+        back[0][j] = 2
+    for i in range(1, n + 1):
+        cur = [i] + [0] * m
+        back[i][0] = 1
+        ai = a[i - 1]
+        for j in range(1, m + 1):
+            cost = 0 if ai == b[j - 1] else 1
+            diag, up, left = prev[j - 1] + cost, prev[j] + 1, cur[j - 1] + 1
+            best = min(diag, up, left)
+            cur[j] = best
+            back[i][j] = 0 if best == diag else (1 if best == up else 2)
+        prev = cur
+    pairs: list[tuple[int, int]] = []
+    i, j = n, m
+    while i > 0 and j > 0:
+        d = back[i][j]
+        if d == 0:
+            pairs.append((i - 1, j - 1))
+            i -= 1
+            j -= 1
+        elif d == 1:
+            i -= 1
+        else:
+            j -= 1
+    pairs.reverse()
+    return pairs
+
+
+def _asr_line_timings(lines: list[dict[str, Any]], result: dict[str, Any]) -> list[tuple[float, float]] | None:
+    """Line times derived from where the lyrics actually got sung.
+
+    Aligns the known lyric morae against the morae of the ASR transcript of the
+    vocal, then reads each line's time span off the matched ASR words. Beats
+    proportional spreading because it survives instrumental intros, repeated
+    choruses and different line lengths.
+    """
+    heard, htimes = _heard_morae(result)
+    target: list[str] = []
+    line_of: list[int] = []
+    for li, line in enumerate(lines):
+        for tok in line["tokens"]:
+            for mo in tok.get("morae") or []:
+                target.append(mo)
+                line_of.append(li)
+    if not heard or not target:
+        return None
+
+    pairs = _nw_pairs(target, heard)
+    matched = {ti: hj for ti, hj in pairs}
+    if len(matched) / len(target) < 0.55:
+        return None
+
+    starts: list[float | None] = [None] * len(lines)
+    ends: list[float | None] = [None] * len(lines)
+    for ti, hj in matched.items():
+        li = line_of[ti]
+        t = htimes[hj]
+        if starts[li] is None or t < starts[li]:  # type: ignore[operator]
+            starts[li] = t
+        if ends[li] is None or t > ends[li]:  # type: ignore[operator]
+            ends[li] = t
+
+    # a line whose morae were all dropped by the ASR: interpolate
+    known = [i for i, v in enumerate(starts) if v is not None]
+    if len(known) < max(2, len(lines) // 3):
+        return None
+    for i in range(len(lines)):
+        if starts[i] is None:
+            lo = next((k for k in reversed(known) if k < i), None)
+            hi = next((k for k in known if k > i), None)
+            if lo is not None and hi is not None:
+                frac = (i - lo) / (hi - lo)
+                starts[i] = starts[lo] + (starts[hi] - starts[lo]) * frac  # type: ignore[operator]
+                ends[i] = starts[i]
+            elif lo is not None:
+                starts[i] = starts[lo]
+                ends[i] = starts[lo]
+            else:
+                starts[i] = ends[i] = 0.0
+
+    # give every line a minimum plausible duration and close gaps
+    avg = sum(
+        (ends[i] - starts[i]) / max(1, sum(len(t.get("morae") or []) for t in lines[i]["tokens"]))
+        for i in range(len(lines))
+    ) / max(1, len(lines))
+    out: list[tuple[float, float]] = []
+    for i in range(len(lines)):
+        a, b = float(starts[i]), float(ends[i])  # type: ignore[arg-type]
+        n_morae = max(1, sum(len(t.get("morae") or []) for t in lines[i]["tokens"]))
+        b = max(b, a + avg * n_morae)
+        out.append((a, b))
+    for i in range(len(out) - 1):
+        a, b = out[i]
+        out[i] = (round(a, 2), round(min(b, out[i + 1][0] + 2.0), 2))
+    a, b = out[-1]
+    out[-1] = (round(a, 2), round(max(b, a + 0.5), 2))
+    if sum(max(0.0, b - a) for a, b in out) < 1.0:
+        return None
+    return out
+
+
+def _sung_spans(result: dict[str, Any]) -> list[tuple[float, float]]:
+    """Where singing actually happens, in order. Falls back to segments."""
+    spans: list[tuple[float, float]] = []
+    for seg in result.get("segments") or []:
+        words = seg.get("words") or []
+        if words:
+            for w in words:
+                try:
+                    spans.append((float(w["start"]), float(w["end"])))
+                except (KeyError, TypeError, ValueError):
+                    continue
+        else:
+            try:
+                spans.append((float(seg["start"]), float(seg["end"])))
+            except (KeyError, TypeError, ValueError):
+                continue
+    spans = sorted((a, b) for a, b in spans if b > a)
+    # merge overlapping/adjacent spans (whisper word timings often overlap)
+    merged: list[list[float]] = []
+    for a, b in spans:
+        if merged and a <= merged[-1][1] + 0.02:
+            merged[-1][1] = max(merged[-1][1], b)
+        else:
+            merged.append([a, b])
+    return [(a, b) for a, b in merged]
+
+
+def _wall_time_at(spans: list[tuple[float, float]], offset: float) -> float:
+    """Map a position inside the *sung* timeline back to wall-clock seconds."""
+    if not spans:
+        return max(0.0, offset)
+    acc = 0.0
+    for a, b in spans:
+        dur = b - a
+        if offset <= acc + dur:
+            return a + (offset - acc)
+        acc += dur
+    return spans[-1][1]
+
+
+
+def _sanitize_timings(timings: list[tuple[float, float]], max_line: float = 15.0) -> list[tuple[float, float]]:
+    """Force a usable timeline: monotonic, non-overlapping, sane per-line length.
+
+    ASR matches are sparse and sometimes land on an instrumental outro, which can
+    hand one line a 60s span. A rough timeline the user can fix beats a precise
+    one that is obviously wrong.
+    """
+    if not timings:
+        return timings
+    clean: list[tuple[float, float]] = []
+    prev_end = 0.0
+    for a, b in timings:
+        a = max(0.0, float(a), prev_end)
+        b = max(a + 0.4, min(float(b), a + max_line))
+        clean.append((round(a, 2), round(b, 2)))
+        prev_end = b + 0.01
+    return clean
+
+
+def _allocate_timings(spans: list[tuple[float, float]], weights: list[int]) -> list[tuple[float, float]]:
+    """Share the sung timeline between lines in proportion to their mora counts.
+
+    Using sung spans (not the whole file) means intros, instrumental breaks and
+    the outro don't swallow the lyrics.
+    """
+    if not spans:
+        return [(-1.0, -1.0)] * len(weights)
+    total_dur = sum(b - a for a, b in spans)
+    total_w = max(1, sum(weights))
+    out: list[tuple[float, float]] = []
+    acc = 0.0
+    for w in weights:
+        dur = total_dur * w / total_w
+        start = _wall_time_at(spans, acc)
+        end = _wall_time_at(spans, acc + dur)
+        if end - start < 0.25:
+            end = start + 0.25
+        out.append((round(start, 2), round(end, 2)))
+        acc += dur
+    return out
 
 # ------------------------------------------------------------------ songs
 
