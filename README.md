@@ -79,7 +79,8 @@ cd web && pnpm install && pnpm dev     # http://127.0.0.1:5173
 server/jp.py          fugashi + unidic-lite → tokens, furigana alignment, morae, romaji,
                       ｜当て字 flags, kanji traps
 server/annotate.py     Ollama → 中译 · 自然度 · 语法注 · 词义   (batched, ~4s for a whole song)
-server/audio/         yt-dlp (YouTube android-client fallback) · ffmpeg · faster-whisper · captions
+server/audio/         yt-dlp (YouTube android-client retry) · Bilibili API fallback · ffmpeg
+                      · faster-whisper (word timings) · caption parser
 server/kana_diff.py   mora-level SequenceMatcher + plain-language hints
 server/store.py       one JSON doc per song under data/songs/<id>/
 server/main.py        FastAPI: ingest/annotate/autosync as pollable jobs
@@ -100,8 +101,11 @@ Two deliberate choices worth knowing:
   hint about dropped morae, not a verdict on your voice.
 - `自然度` and `中译` are model output. They're good, they're not a textbook. The goal is to make
   you notice *"huh, nobody says that"* — not to be your authority.
-- ASR auto-sync is a rough pass (proportional mora allocation over detected sung spans). Tap-sync
-  is the ground truth.
+- ASR auto-sync aligns the known lyric morae against the morae of the whisper transcript of the
+  vocal (Needleman-Wunsch), so it survives intros and instrumental breaks — but singing ASR is
+  imperfect and the result is a first pass. Tap-sync is the ground truth.
+- On some networks YouTube's subtitle endpoint is rate-limited (HTTP 429), so `自动同步` falls
+  straight through to the ASR path. That's expected, not a bug.
 
 ## Legal
 

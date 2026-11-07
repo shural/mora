@@ -188,7 +188,7 @@ def _source_song_id(info: dict[str, Any], title: str) -> str:
         return f"yt-{m.group(1).lower()}"
     m = re.search(r"/video/(BV[0-9A-Za-z]+)", url, re.I)
     if m:
-        return f"bv-{m.group(1).lower()[:12]}"
+        return m.group(1).lower()[:16]
     m = re.search(r"/video/(av\d+)", url, re.I)
     if m:
         return f"av-{m.group(1)[2:]}"
