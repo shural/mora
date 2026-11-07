@@ -1,0 +1,1079 @@
+{
+  "id": "furusato",
+  "title": "ふるさと",
+  "artist": "童謡",
+  "duration": 178.0,
+  "audioUrl": "/api/media/furusato/audio",
+  "coverUrl": null,
+  "sourceUrl": "https://www.youtube.com/watch?v=demo",
+  "offset": 0.0,
+  "synced": true,
+  "createdAt": "2026-11-07T20:00:00+08:00",
+  "cards": [
+    {
+      "id": "c1",
+      "songId": "furusato",
+      "lineId": "l3",
+      "tokenId": "l3t2",
+      "surface": "故郷",
+      "kana": "こきょう",
+      "romaji": "kokyou",
+      "glossZh": "故乡",
+      "lineText": "忘れがたき故郷",
+      "start": 22.4,
+      "end": 23.6,
+      "sliceUrl": "/api/media/furusato/slice?start=22.4&end=23.6&format=wav",
+      "due": "2026-11-08T09:00:00+08:00",
+      "interval": 1,
+      "ease": 2.5,
+      "reps": 1,
+      "lapses": 0,
+      "createdAt": "2026-11-07T20:00:00+08:00"
+    },
+    {
+      "id": "c2",
+      "songId": "furusato",
+      "lineId": "l5",
+      "tokenId": "l5t0",
+      "surface": "恙な",
+      "kana": "つつがな",
+      "romaji": "tsutsugana",
+      "glossZh": "无恙；平安无事",
+      "lineText": "恙なしや友がき",
+      "start": 29.2,
+      "end": 30.4,
+      "sliceUrl": "/api/media/furusato/slice?start=29.2&end=30.4&format=wav",
+      "due": "2026-11-08T09:00:00+08:00",
+      "interval": 1,
+      "ease": 2.5,
+      "reps": 0,
+      "lapses": 0,
+      "createdAt": "2026-11-07T20:00:00+08:00"
+    }
+  ],
+  "lines": [
+    {
+      "id": "l0",
+      "text": "兎追いしかの山",
+      "start": 12.4,
+      "end": 15.1,
+      "glossZh": "追过兔子的那座山",
+      "naturalness": "yellow",
+      "note": "「〜しか」是古语回想助动词「き」的连体形，现代日语不会这样说。",
+      "tokens": [
+        {
+          "id": "l0t0",
+          "surface": "兎",
+          "ruby": [
+            {
+              "text": "兎",
+              "rt": "うさぎ"
+            }
+          ],
+          "kana": "うさぎ",
+          "romaji": "usagi",
+          "morae": [
+            "う",
+            "さ",
+            "ぎ"
+          ],
+          "pos": "名詞-普通名詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l0t1",
+          "surface": "追い",
+          "ruby": [
+            {
+              "text": "追",
+              "rt": "お"
+            },
+            {
+              "text": "い"
+            }
+          ],
+          "kana": "おい",
+          "romaji": "oi",
+          "morae": [
+            "お",
+            "い"
+          ],
+          "pos": "動詞-一般",
+          "dictForm": "追う",
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l0t2",
+          "surface": "しか",
+          "ruby": [
+            {
+              "text": "しか"
+            }
+          ],
+          "kana": "しか",
+          "romaji": "shika",
+          "morae": [
+            "し",
+            "か"
+          ],
+          "pos": "助詞-副助詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [
+            "jodai"
+          ],
+          "saved": false
+        },
+        {
+          "id": "l0t3",
+          "surface": "の",
+          "ruby": [
+            {
+              "text": "の"
+            }
+          ],
+          "kana": "の",
+          "romaji": "no",
+          "morae": [
+            "の"
+          ],
+          "pos": "助詞-格助詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l0t4",
+          "surface": "山",
+          "ruby": [
+            {
+              "text": "山",
+              "rt": "やま"
+            }
+          ],
+          "kana": "やま",
+          "romaji": "yama",
+          "morae": [
+            "や",
+            "ま"
+          ],
+          "pos": "名詞-普通名詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [],
+          "saved": false
+        }
+      ]
+    },
+    {
+      "id": "l1",
+      "text": "小鮒釣りしかの川",
+      "start": 15.1,
+      "end": 18.2,
+      "glossZh": "钓过小鲫鱼的那条河",
+      "naturalness": "yellow",
+      "note": "同上，仍是文语过去式。「小鮒」读こぶな，是幼鲫鱼。",
+      "tokens": [
+        {
+          "id": "l1t0",
+          "surface": "小鮒",
+          "ruby": [
+            {
+              "text": "小鮒",
+              "rt": "こぶな"
+            }
+          ],
+          "kana": "こぶな",
+          "romaji": "kobuna",
+          "morae": [
+            "こ",
+            "ぶ",
+            "な"
+          ],
+          "pos": "名詞-普通名詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l1t1",
+          "surface": "釣り",
+          "ruby": [
+            {
+              "text": "釣",
+              "rt": "つ"
+            },
+            {
+              "text": "り"
+            }
+          ],
+          "kana": "つり",
+          "romaji": "tsuri",
+          "morae": [
+            "つ",
+            "り"
+          ],
+          "pos": "名詞-普通名詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l1t2",
+          "surface": "しか",
+          "ruby": [
+            {
+              "text": "しか"
+            }
+          ],
+          "kana": "しか",
+          "romaji": "shika",
+          "morae": [
+            "し",
+            "か"
+          ],
+          "pos": "助詞-副助詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [
+            "jodai"
+          ],
+          "saved": false
+        },
+        {
+          "id": "l1t3",
+          "surface": "の",
+          "ruby": [
+            {
+              "text": "の"
+            }
+          ],
+          "kana": "の",
+          "romaji": "no",
+          "morae": [
+            "の"
+          ],
+          "pos": "助詞-格助詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l1t4",
+          "surface": "川",
+          "ruby": [
+            {
+              "text": "川",
+              "rt": "かわ"
+            }
+          ],
+          "kana": "かわ",
+          "romaji": "kawa",
+          "morae": [
+            "か",
+            "わ"
+          ],
+          "pos": "名詞-普通名詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [],
+          "saved": false
+        }
+      ]
+    },
+    {
+      "id": "l2",
+      "text": "夢は今もめぐりて",
+      "start": 18.2,
+      "end": 21.6,
+      "glossZh": "梦境至今仍在心头萦绕",
+      "naturalness": "yellow",
+      "note": "「めぐりて」是「めぐる」的文语て形；口语说「めぐって」。",
+      "tokens": [
+        {
+          "id": "l2t0",
+          "surface": "夢",
+          "ruby": [
+            {
+              "text": "夢",
+              "rt": "ゆめ"
+            }
+          ],
+          "kana": "ゆめ",
+          "romaji": "yume",
+          "morae": [
+            "ゆ",
+            "め"
+          ],
+          "pos": "名詞-普通名詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l2t1",
+          "surface": "は",
+          "ruby": [
+            {
+              "text": "は"
+            }
+          ],
+          "kana": "は",
+          "romaji": "wa",
+          "morae": [
+            "は"
+          ],
+          "pos": "助詞-係助詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l2t2",
+          "surface": "今",
+          "ruby": [
+            {
+              "text": "今",
+              "rt": "いま"
+            }
+          ],
+          "kana": "いま",
+          "romaji": "ima",
+          "morae": [
+            "い",
+            "ま"
+          ],
+          "pos": "名詞-普通名詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l2t3",
+          "surface": "も",
+          "ruby": [
+            {
+              "text": "も"
+            }
+          ],
+          "kana": "も",
+          "romaji": "mo",
+          "morae": [
+            "も"
+          ],
+          "pos": "助詞-係助詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l2t4",
+          "surface": "めぐり",
+          "ruby": [
+            {
+              "text": "めぐり"
+            }
+          ],
+          "kana": "めぐり",
+          "romaji": "meguri",
+          "morae": [
+            "め",
+            "ぐ",
+            "り"
+          ],
+          "pos": "動詞-一般",
+          "dictForm": "巡る",
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l2t5",
+          "surface": "て",
+          "ruby": [
+            {
+              "text": "て"
+            }
+          ],
+          "kana": "て",
+          "romaji": "te",
+          "morae": [
+            "て"
+          ],
+          "pos": "助詞-接続助詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [
+            "jodai"
+          ],
+          "saved": false
+        }
+      ]
+    },
+    {
+      "id": "l3",
+      "text": "忘れがたき故郷",
+      "start": 21.6,
+      "end": 25.0,
+      "glossZh": "难以忘怀的故乡",
+      "naturalness": "yellow",
+      "note": "「〜がたき」＝「〜にくい」的古语形式。这里的「故郷」读ふるさと，不是词典的こきょう。",
+      "tokens": [
+        {
+          "id": "l3t0",
+          "surface": "忘れ",
+          "ruby": [
+            {
+              "text": "忘",
+              "rt": "わす"
+            },
+            {
+              "text": "れ"
+            }
+          ],
+          "kana": "わすれ",
+          "romaji": "wasure",
+          "morae": [
+            "わ",
+            "す",
+            "れ"
+          ],
+          "pos": "動詞-非自立可能",
+          "dictForm": "忘れる",
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l3t1",
+          "surface": "がたき",
+          "ruby": [
+            {
+              "text": "がたき"
+            }
+          ],
+          "kana": "がたき",
+          "romaji": "gataki",
+          "morae": [
+            "が",
+            "た",
+            "き"
+          ],
+          "pos": "接尾辞-形容詞的",
+          "dictForm": "難い",
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l3t2",
+          "surface": "故郷",
+          "ruby": [
+            {
+              "text": "故郷",
+              "rt": "こきょう"
+            }
+          ],
+          "kana": "こきょう",
+          "romaji": "kokyou",
+          "morae": [
+            "こ",
+            "きょ",
+            "う"
+          ],
+          "pos": "名詞-普通名詞",
+          "dictForm": null,
+          "glossZh": "故乡",
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [
+            "rare-reading"
+          ],
+          "saved": true
+        }
+      ]
+    },
+    {
+      "id": "l4",
+      "text": "如何にいます父母",
+      "start": 25.0,
+      "end": 28.9,
+      "glossZh": "父母可还安好",
+      "naturalness": "red",
+      "note": "整句是文语：「如何に」＝どう、「います」＝いらっしゃる。口语：両親は元気にしてるかな。",
+      "tokens": [
+        {
+          "id": "l4t0",
+          "surface": "如何",
+          "ruby": [
+            {
+              "text": "如何",
+              "rt": "いかが"
+            }
+          ],
+          "kana": "いかが",
+          "romaji": "ikaga",
+          "morae": [
+            "い",
+            "か",
+            "が"
+          ],
+          "pos": "形状詞-一般",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "red",
+          "note": null,
+          "flags": [
+            "rare-reading"
+          ],
+          "saved": false
+        },
+        {
+          "id": "l4t1",
+          "surface": "に",
+          "ruby": [
+            {
+              "text": "に"
+            }
+          ],
+          "kana": "に",
+          "romaji": "ni",
+          "morae": [
+            "に"
+          ],
+          "pos": "助動詞",
+          "dictForm": "だ",
+          "glossZh": null,
+          "naturalness": "red",
+          "note": null,
+          "flags": [
+            "jodai"
+          ],
+          "saved": false
+        },
+        {
+          "id": "l4t2",
+          "surface": "い",
+          "ruby": [
+            {
+              "text": "い"
+            }
+          ],
+          "kana": "い",
+          "romaji": "i",
+          "morae": [
+            "い"
+          ],
+          "pos": "動詞-非自立可能",
+          "dictForm": "居る",
+          "glossZh": null,
+          "naturalness": "red",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l4t3",
+          "surface": "ます",
+          "ruby": [
+            {
+              "text": "ます"
+            }
+          ],
+          "kana": "ます",
+          "romaji": "masu",
+          "morae": [
+            "ま",
+            "す"
+          ],
+          "pos": "助動詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "red",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l4t4",
+          "surface": "父母",
+          "ruby": [
+            {
+              "text": "父母",
+              "rt": "ふぼ"
+            }
+          ],
+          "kana": "ふぼ",
+          "romaji": "fubo",
+          "morae": [
+            "ふ",
+            "ぼ"
+          ],
+          "pos": "名詞-普通名詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "red",
+          "note": null,
+          "flags": [
+            "rare-reading"
+          ],
+          "saved": false
+        }
+      ]
+    },
+    {
+      "id": "l5",
+      "text": "恙なしや友がき",
+      "start": 28.9,
+      "end": 32.6,
+      "glossZh": "朋友们可还无恙",
+      "naturalness": "red",
+      "note": "「恙なし」＝つつがない（平安无事），「や」是文语疑问助词。口语：友達は元気かな。",
+      "tokens": [
+        {
+          "id": "l5t0",
+          "surface": "恙な",
+          "ruby": [
+            {
+              "text": "恙",
+              "rt": "つつが"
+            },
+            {
+              "text": "な"
+            }
+          ],
+          "kana": "つつがな",
+          "romaji": "tsutsugana",
+          "morae": [
+            "つ",
+            "つ",
+            "が",
+            "な"
+          ],
+          "pos": "形容詞-一般",
+          "dictForm": "恙無い",
+          "glossZh": "无恙；平安无事",
+          "naturalness": "red",
+          "note": null,
+          "flags": [],
+          "saved": true
+        },
+        {
+          "id": "l5t1",
+          "surface": "し",
+          "ruby": [
+            {
+              "text": "し"
+            }
+          ],
+          "kana": "し",
+          "romaji": "shi",
+          "morae": [
+            "し"
+          ],
+          "pos": "助動詞",
+          "dictForm": "き",
+          "glossZh": null,
+          "naturalness": "red",
+          "note": null,
+          "flags": [
+            "jodai"
+          ],
+          "saved": false
+        },
+        {
+          "id": "l5t2",
+          "surface": "や",
+          "ruby": [
+            {
+              "text": "や"
+            }
+          ],
+          "kana": "や",
+          "romaji": "ya",
+          "morae": [
+            "や"
+          ],
+          "pos": "助詞-副助詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "red",
+          "note": null,
+          "flags": [
+            "jodai"
+          ],
+          "saved": false
+        },
+        {
+          "id": "l5t3",
+          "surface": "友",
+          "ruby": [
+            {
+              "text": "友",
+              "rt": "とも"
+            }
+          ],
+          "kana": "とも",
+          "romaji": "tomo",
+          "morae": [
+            "と",
+            "も"
+          ],
+          "pos": "名詞-普通名詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "red",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l5t4",
+          "surface": "が",
+          "ruby": [
+            {
+              "text": "が"
+            }
+          ],
+          "kana": "が",
+          "romaji": "ga",
+          "morae": [
+            "が"
+          ],
+          "pos": "助詞-格助詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "red",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l5t5",
+          "surface": "き",
+          "ruby": [
+            {
+              "text": "き"
+            }
+          ],
+          "kana": "き",
+          "romaji": "ki",
+          "morae": [
+            "き"
+          ],
+          "pos": "動詞-非自立可能",
+          "dictForm": "来る",
+          "glossZh": null,
+          "naturalness": "red",
+          "note": null,
+          "flags": [
+            "jodai"
+          ],
+          "saved": false
+        }
+      ]
+    },
+    {
+      "id": "l6",
+      "text": "雨に風につけても",
+      "start": 32.6,
+      "end": 36.2,
+      "glossZh": "无论是下雨还是刮风",
+      "naturalness": "green",
+      "note": "「〜につけても」＝每当……就……，这个表达现代日语里还在用。",
+      "tokens": [
+        {
+          "id": "l6t0",
+          "surface": "雨",
+          "ruby": [
+            {
+              "text": "雨",
+              "rt": "あめ"
+            }
+          ],
+          "kana": "あめ",
+          "romaji": "ame",
+          "morae": [
+            "あ",
+            "め"
+          ],
+          "pos": "名詞-普通名詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "green",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l6t1",
+          "surface": "に",
+          "ruby": [
+            {
+              "text": "に"
+            }
+          ],
+          "kana": "に",
+          "romaji": "ni",
+          "morae": [
+            "に"
+          ],
+          "pos": "助詞-格助詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "green",
+          "note": null,
+          "flags": [
+            "jodai"
+          ],
+          "saved": false
+        },
+        {
+          "id": "l6t2",
+          "surface": "風",
+          "ruby": [
+            {
+              "text": "風",
+              "rt": "かぜ"
+            }
+          ],
+          "kana": "かぜ",
+          "romaji": "kaze",
+          "morae": [
+            "か",
+            "ぜ"
+          ],
+          "pos": "名詞-普通名詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "green",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l6t3",
+          "surface": "に",
+          "ruby": [
+            {
+              "text": "に"
+            }
+          ],
+          "kana": "に",
+          "romaji": "ni",
+          "morae": [
+            "に"
+          ],
+          "pos": "助詞-格助詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "green",
+          "note": null,
+          "flags": [
+            "jodai"
+          ],
+          "saved": false
+        },
+        {
+          "id": "l6t4",
+          "surface": "つけ",
+          "ruby": [
+            {
+              "text": "つけ"
+            }
+          ],
+          "kana": "つけ",
+          "romaji": "tsuke",
+          "morae": [
+            "つ",
+            "け"
+          ],
+          "pos": "動詞-非自立可能",
+          "dictForm": "付ける",
+          "glossZh": null,
+          "naturalness": "green",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l6t5",
+          "surface": "て",
+          "ruby": [
+            {
+              "text": "て"
+            }
+          ],
+          "kana": "て",
+          "romaji": "te",
+          "morae": [
+            "て"
+          ],
+          "pos": "助詞-接続助詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "green",
+          "note": null,
+          "flags": [
+            "jodai"
+          ],
+          "saved": false
+        },
+        {
+          "id": "l6t6",
+          "surface": "も",
+          "ruby": [
+            {
+              "text": "も"
+            }
+          ],
+          "kana": "も",
+          "romaji": "mo",
+          "morae": [
+            "も"
+          ],
+          "pos": "助詞-係助詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "green",
+          "note": null,
+          "flags": [],
+          "saved": false
+        }
+      ]
+    },
+    {
+      "id": "l7",
+      "text": "思ひ出づる故郷",
+      "start": 36.2,
+      "end": 40.0,
+      "glossZh": "总会想起的故乡",
+      "naturalness": "yellow",
+      "note": "「思ひ出づる」是旧假名遣い，现代写作「思い出づる／思い出す」。「故郷」同样读ふるさと。",
+      "tokens": [
+        {
+          "id": "l7t0",
+          "surface": "思ひ出",
+          "ruby": [
+            {
+              "text": "思ひ出",
+              "rt": "おもいで"
+            }
+          ],
+          "kana": "おもいで",
+          "romaji": "omoide",
+          "morae": [
+            "お",
+            "も",
+            "い",
+            "で"
+          ],
+          "pos": "名詞-普通名詞",
+          "dictForm": "思い出",
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l7t1",
+          "surface": "づる",
+          "ruby": [
+            {
+              "text": "づる"
+            }
+          ],
+          "kana": "づる",
+          "romaji": "zuru",
+          "morae": [
+            "づ",
+            "る"
+          ],
+          "pos": "名詞-普通名詞",
+          "dictForm": "蔓",
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [],
+          "saved": false
+        },
+        {
+          "id": "l7t2",
+          "surface": "故郷",
+          "ruby": [
+            {
+              "text": "故郷",
+              "rt": "こきょう"
+            }
+          ],
+          "kana": "こきょう",
+          "romaji": "kokyou",
+          "morae": [
+            "こ",
+            "きょ",
+            "う"
+          ],
+          "pos": "名詞-普通名詞",
+          "dictForm": null,
+          "glossZh": null,
+          "naturalness": "yellow",
+          "note": null,
+          "flags": [
+            "rare-reading"
+          ],
+          "saved": false
+        }
+      ]
+    }
+  ]
+}

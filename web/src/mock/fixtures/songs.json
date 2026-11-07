@@ -1,0 +1,14 @@
+[
+  {
+    "id": "furusato",
+    "title": "ふるさと",
+    "artist": "童謡",
+    "duration": 178.0,
+    "audioUrl": "/api/media/furusato/audio",
+    "coverUrl": null,
+    "linesTotal": 8,
+    "cards": 2,
+    "synced": true,
+    "thumbHue": 338
+  }
+]
