@@ -10,6 +10,7 @@ import traceback
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+import unicodedata
 from typing import Any, Callable
 
 from fastapi import Body, FastAPI, File, HTTPException, Request, UploadFile
@@ -17,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import annotate, jp, kana_diff, store
+from . import annotate, jp, kana_diff, lyrics, store
 
 try:  # the audio module is developed in parallel; never break import on it
     from . import audio as audio_mod
@@ -112,6 +113,7 @@ def health() -> dict[str, Any]:
         "media": au,
         "tokenizer": tok,
         "ollama": annotate.health(),
+        "lyrics": lyrics.health(),
         "version": "0.1.0",
     }
 
@@ -194,72 +196,219 @@ def _source_song_id(info: dict[str, Any], title: str) -> str:
         return f"av-{m.group(1)[2:]}"
     return store.new_id(title)
 
+def _search_artist(artist: str) -> str:
+    """'CHAGE and ASKA (恰克与飞鸟)' -> 'CHAGE and ASKA' for the audio search."""
+    a = re.sub(r"[\(（\[【].*?[\)）\]】]", "", artist or "")
+    return re.sub(r"\s+", " ", a).strip(" /-") or (artist or "")
+
+
+def _apply_lyrics(song: dict[str, Any], cand: Any) -> None:
+    """Turn a lyric candidate (timestamped LRC) into song lines."""
+    texts = [str(r["text"]) for r in cand.lines]
+    timings = [(float(r["start"]), float(r["end"])) for r in cand.lines]
+    song["lines"] = store.build_lines(texts, timings)
+    if getattr(cand, "trans", None):
+        for line, row in zip(song["lines"], cand.lines):
+            g = cand.trans.get(f"{float(row['start']):.2f}")
+            if g:
+                line["glossZh"] = g
+    song["lyricsSource"] = cand.source
+    song["timingSource"] = "lrc"
+    store.mark_synced(song)
+    song["matchedFrom"] = cand.as_dict()
+
+
+def _timings_ok(lines: list[dict[str, Any]], duration: float, ref_duration: float = 0.0) -> bool:
+    """Do these LRC timestamps plausibly describe *this* audio file?
+
+    A different master, a live take or a cover will disagree with the lyric
+    provider's timeline; silently trusting it produces a karaoke that is
+    confidently wrong, which is worse than falling back to ASR.
+    """
+    timed = [l for l in lines if l["start"] >= 0]
+    if not timed or duration <= 0:
+        return False
+    first = min(l["start"] for l in timed)
+    last = max(l["end"] for l in timed)
+    if first > duration * 0.5:
+        return False
+    if last > duration + 20:
+        return False
+    if last < duration * 0.35:
+        return False
+    if ref_duration > 0 and abs(duration - ref_duration) / ref_duration > 0.15:
+        return False
+    return True
+
+
+def _align_lines_to_audio(au: Any, song: dict[str, Any],
+                          progress: Callable[[float, str], None] | None = None) -> str:
+    """Set line times from captions, else from where the vocal actually is."""
+    spans: list[tuple[float, float]] = []
+    result: dict[str, Any] | None = None
+    source = "captions"
+    url = song.get("sourceUrl")
+    if url:
+        try:
+            cues = au.fetch_captions(url, store.song_dir(song["id"]))
+        except Exception:  # noqa: BLE001
+            cues = None
+        if cues:
+            _texts, timings = _captions_to_lines(cues)
+            spans = [(a, b) for a, b in timings if b > a]
+    if not spans:
+        source = "asr"
+        path = store.audio_path(song["id"])
+        if not path:
+            raise RuntimeError("没有字幕，也找不到音频文件")
+        if progress:
+            progress(78, "音频与歌词时间轴不一致，用语音识别重新对齐…")
+        result = au.transcribe(path, language="ja")
+        spans = _sung_spans(result)
+        if not spans:
+            raise RuntimeError("语音识别没找到清晰的演唱段落，请手动打点")
+
+    weights = [max(1, sum(len(t.get("morae") or []) for t in l["tokens"])) for l in song["lines"]]
+    timings: list[tuple[float, float]] | None = None
+    if result is not None:
+        timings = _asr_line_timings(song["lines"], result)
+        if timings:
+            source = "asr-mora"
+    if not timings:
+        timings = _allocate_timings(spans, weights)
+    timings = _sanitize_timings(timings)
+    for line, (a, b) in zip(song["lines"], timings):
+        line["start"], line["end"] = a, b
+    song["timingSource"] = source
+    store.mark_synced(song)
+    return source
+
+
 @app.post("/api/ingest")
 def ingest(payload: dict[str, Any] = Body(...)) -> dict[str, Any]:
+    """One box, one button: a link, or just a song name.
+
+    Name input resolves lyrics first (timestamped), then uses the lyric
+    provider's artist/title to search for the audio — searching the audio with
+    the raw query gets `Say Yes` -> an English R&B track, not CHAGE and ASKA.
+    """
     query = str(payload.get("query") or "").strip()
     if not query:
         raise HTTPException(400, "请输入链接或歌名")
+    is_url = _looks_like_url(query)
 
     def work(progress: Callable[[float, str], None]) -> dict[str, Any]:
         au = _require_audio()
-        info = _resolve_url(query, progress)
-        import unicodedata
+        cand = None
+        if not is_url:
+            progress(2, f"按歌名找歌词：{query}")
+            try:
+                cand = lyrics.resolve(query)
+            except Exception as e:  # noqa: BLE001
+                print("lyrics resolve failed:", e)
+            if cand:
+                progress(12, f"找到：{cand.title} — {cand.artist}")
+
+        audio_query = f"{_search_artist(cand.artist)} {cand.title}".strip() if cand else query
+        try:
+            info = _resolve_url(audio_query, progress)
+        except HTTPException:
+            if audio_query != query:
+                info = _resolve_url(query, progress)
+            else:
+                raise
+
         title = unicodedata.normalize("NFC", info.get("title") or "未命名")
         artist = unicodedata.normalize("NFC", info.get("uploader") or "")
         song_id = _source_song_id(info, title)
         dest = store.song_dir(song_id)
         dest.mkdir(parents=True, exist_ok=True)
-        progress(8, f"下载音频：{title}")
+        progress(18, f"下载音频：{title}")
         dl_url = info.get("webpage_url") or query
 
         def _dl(u: str, lo: float) -> dict[str, Any]:
-            return au.download(u, dest, lambda p, m: progress(lo + p * 0.55, m))
+            return au.download(u, dest, lambda p, m: progress(lo + p * 0.45, m))
 
         try:
-            meta = _dl(dl_url, 8)
+            meta = _dl(dl_url, 18)
         except Exception as first_err:  # noqa: BLE001
-            # YouTube media URLs are often bot-blocked on this network; Bilibili is not.
-            if _looks_like_url(query):
+            if is_url:
                 raise
-            progress(50, "这个源下载失败，改用 bilibili 找同一个歌名…")
-            alt = au.probe("bilisearch1:" + query)
+            progress(56, "这个源下载失败，改用 bilibili 找同一首歌…")
+            alt = au.probe("bilisearch1:" + audio_query)
             if not alt.get("ok"):
                 raise first_err
             info = alt
-            title = info.get("title") or title
-            meta = _dl(info.get("webpage_url") or query, 52)
+            title = unicodedata.normalize("NFC", info.get("title") or title)
+            meta = _dl(info.get("webpage_url") or query, 56)
+
         duration = float(meta.get("duration") or info.get("duration") or 0)
-        progress(72, "读取字幕…")
-        cues = None
-        try:
-            cues = au.fetch_captions(meta.get("webpage_url") or info.get("webpage_url") or query, dest)
-        except Exception as e:  # noqa: BLE001
-            print("captions failed:", e)
-        lines_text: list[str] = []
-        timings: list[tuple[float, float]] | None = None
-        if cues:
-            lines_text, timings = _captions_to_lines(cues)
+        if (dest / "song.json").exists() and not payload.get("force"):
+            try:
+                existing = store.get_song(song_id)
+            except KeyError:
+                existing = None
+            if existing and existing.get("lines"):
+                progress(100, f"曲库里已经有：{existing.get('title')}")
+                return {"songId": song_id, "title": existing.get("title"),
+                        "artist": existing.get("artist"), "lines": len(existing["lines"]),
+                        "existing": True,
+                        "lyricsSource": existing.get("lyricsSource"),
+                        "timingSource": existing.get("timingSource")}
         song = store.empty_song(
             song_id,
-            title=meta.get("title") or title,
-            artist=meta.get("artist") or artist,
+            title=(cand.title if cand else (meta.get("title") or title)),
+            artist=(cand.artist if cand else (meta.get("artist") or artist)),
             duration=duration,
             source_url=meta.get("webpage_url") or query,
             cover_url=meta.get("thumbnail"),
         )
-        song["lines"] = store.build_lines(lines_text, timings) if lines_text else []
-        song["lyricsSource"] = "captions" if lines_text else "none"
-        store.mark_synced(song)
-        progress(92, "生成标注…")
-        if lines_text:
+        song["videoTitle"] = meta.get("title") or title
+
+        if cand and cand.lines:
+            progress(74, f"歌词：{cand.title} — {cand.artist}（{cand.source}·带时间轴）")
+            _apply_lyrics(song, cand)
+            if not _timings_ok(song["lines"], duration, cand.duration):
+                print("lrc timings rejected; falling back to alignment")
+                song["lrcRejected"] = True
+                try:
+                    _align_lines_to_audio(au, song, progress)
+                except Exception as e:  # noqa: BLE001
+                    print("alignment after lrc failed:", e)
+
+        if not song["lines"]:
+            progress(80, "没有可用歌词，尝试视频字幕…")
             try:
-                annotate.annotate_song(song)
+                cues = au.fetch_captions(meta.get("webpage_url") or query, dest)
+            except Exception:  # noqa: BLE001
+                cues = None
+            if cues:
+                texts, timings = _captions_to_lines(cues)
+                song["lines"] = store.build_lines(texts, timings)
+                song["lyricsSource"] = "captions"
+                song["timingSource"] = "captions"
+                store.mark_synced(song)
+            else:
+                song["lyricsSource"] = "none"
+                song["timingSource"] = "none"
+
+        progress(90, "生成中文标注…")
+        if song["lines"]:
+            try:
+                annotate.annotate_song(song, overwrite_gloss=False)
             except Exception as e:  # noqa: BLE001
                 print("auto-annotate skipped:", e)
         store.save_song(song)
-        progress(100, "完成")
-        return {"songId": song_id, "title": song["title"],
-                "lines": len(song["lines"]), "fromCaptions": bool(lines_text)}
+        progress(100, f"就绪：{song['title']}（{len(song['lines'])} 行）")
+        return {
+            "songId": song_id,
+            "title": song["title"],
+            "artist": song["artist"],
+            "lines": len(song["lines"]),
+            "lyricsSource": song.get("lyricsSource"),
+            "timingSource": song.get("timingSource"),
+            "matched": cand.as_dict() if cand else None,
+        }
 
     job = _start_job("ingest", work)
     return {"jobId": job["id"]}
@@ -272,227 +421,6 @@ def get_job(job_id: str) -> dict[str, Any]:
         raise HTTPException(404, "任务不存在")
     return job
 
-
-
-# ------------------------------------------------------------------ sung-time mapping
-
-
-def _heard_morae(result: dict[str, Any]) -> tuple[list[str], list[float]]:
-    """Flatten ASR output into (mora, start_time) pairs, in order."""
-    morae: list[str] = []
-    times: list[float] = []
-    for seg in result.get("segments") or []:
-        words = seg.get("words") or []
-        if words:
-            units = [(w.get("start"), w.get("end"), w.get("word")) for w in words]
-        else:
-            units = [(seg.get("start"), seg.get("end"), seg.get("text"))]
-        for a, b, text in units:
-            try:
-                a, b = float(a), float(b)
-            except (TypeError, ValueError):
-                continue
-            ks = kana_diff.morae_of_text(str(text or ""))
-            if not ks:
-                continue
-            span = max(1e-3, b - a)
-            step = span / len(ks)
-            for i, k in enumerate(ks):
-                morae.append(k)
-                times.append(a + step * i)
-    return morae, times
-
-
-def _nw_pairs(a: list[str], b: list[str]) -> list[tuple[int, int]]:
-    """Monotonic alignment (Needleman-Wunsch). Returns matched index pairs."""
-    n, m = len(a), len(b)
-    if n == 0 or m == 0:
-        return []
-    prev = list(range(m + 1))
-    back = [bytearray(m + 1) for _ in range(n + 1)]  # 0 diag 1 up 2 left
-    for j in range(m + 1):
-        back[0][j] = 2
-    for i in range(1, n + 1):
-        cur = [i] + [0] * m
-        back[i][0] = 1
-        ai = a[i - 1]
-        for j in range(1, m + 1):
-            cost = 0 if ai == b[j - 1] else 1
-            diag, up, left = prev[j - 1] + cost, prev[j] + 1, cur[j - 1] + 1
-            best = min(diag, up, left)
-            cur[j] = best
-            back[i][j] = 0 if best == diag else (1 if best == up else 2)
-        prev = cur
-    pairs: list[tuple[int, int]] = []
-    i, j = n, m
-    while i > 0 and j > 0:
-        d = back[i][j]
-        if d == 0:
-            pairs.append((i - 1, j - 1))
-            i -= 1
-            j -= 1
-        elif d == 1:
-            i -= 1
-        else:
-            j -= 1
-    pairs.reverse()
-    return pairs
-
-
-def _asr_line_timings(lines: list[dict[str, Any]], result: dict[str, Any]) -> list[tuple[float, float]] | None:
-    """Line times derived from where the lyrics actually got sung.
-
-    Aligns the known lyric morae against the morae of the ASR transcript of the
-    vocal, then reads each line's time span off the matched ASR words. Beats
-    proportional spreading because it survives instrumental intros, repeated
-    choruses and different line lengths.
-    """
-    heard, htimes = _heard_morae(result)
-    target: list[str] = []
-    line_of: list[int] = []
-    for li, line in enumerate(lines):
-        for tok in line["tokens"]:
-            for mo in tok.get("morae") or []:
-                target.append(mo)
-                line_of.append(li)
-    if not heard or not target:
-        return None
-
-    pairs = _nw_pairs(target, heard)
-    matched = {ti: hj for ti, hj in pairs}
-    if len(matched) / len(target) < 0.55:
-        return None
-
-    starts: list[float | None] = [None] * len(lines)
-    ends: list[float | None] = [None] * len(lines)
-    for ti, hj in matched.items():
-        li = line_of[ti]
-        t = htimes[hj]
-        if starts[li] is None or t < starts[li]:  # type: ignore[operator]
-            starts[li] = t
-        if ends[li] is None or t > ends[li]:  # type: ignore[operator]
-            ends[li] = t
-
-    # a line whose morae were all dropped by the ASR: interpolate
-    known = [i for i, v in enumerate(starts) if v is not None]
-    if len(known) < max(2, len(lines) // 3):
-        return None
-    for i in range(len(lines)):
-        if starts[i] is None:
-            lo = next((k for k in reversed(known) if k < i), None)
-            hi = next((k for k in known if k > i), None)
-            if lo is not None and hi is not None:
-                frac = (i - lo) / (hi - lo)
-                starts[i] = starts[lo] + (starts[hi] - starts[lo]) * frac  # type: ignore[operator]
-                ends[i] = starts[i]
-            elif lo is not None:
-                starts[i] = starts[lo]
-                ends[i] = starts[lo]
-            else:
-                starts[i] = ends[i] = 0.0
-
-    # give every line a minimum plausible duration and close gaps
-    avg = sum(
-        (ends[i] - starts[i]) / max(1, sum(len(t.get("morae") or []) for t in lines[i]["tokens"]))
-        for i in range(len(lines))
-    ) / max(1, len(lines))
-    out: list[tuple[float, float]] = []
-    for i in range(len(lines)):
-        a, b = float(starts[i]), float(ends[i])  # type: ignore[arg-type]
-        n_morae = max(1, sum(len(t.get("morae") or []) for t in lines[i]["tokens"]))
-        b = max(b, a + avg * n_morae)
-        out.append((a, b))
-    for i in range(len(out) - 1):
-        a, b = out[i]
-        out[i] = (round(a, 2), round(min(b, out[i + 1][0] + 2.0), 2))
-    a, b = out[-1]
-    out[-1] = (round(a, 2), round(max(b, a + 0.5), 2))
-    if sum(max(0.0, b - a) for a, b in out) < 1.0:
-        return None
-    return out
-
-
-def _sung_spans(result: dict[str, Any]) -> list[tuple[float, float]]:
-    """Where singing actually happens, in order. Falls back to segments."""
-    spans: list[tuple[float, float]] = []
-    for seg in result.get("segments") or []:
-        words = seg.get("words") or []
-        if words:
-            for w in words:
-                try:
-                    spans.append((float(w["start"]), float(w["end"])))
-                except (KeyError, TypeError, ValueError):
-                    continue
-        else:
-            try:
-                spans.append((float(seg["start"]), float(seg["end"])))
-            except (KeyError, TypeError, ValueError):
-                continue
-    spans = sorted((a, b) for a, b in spans if b > a)
-    # merge overlapping/adjacent spans (whisper word timings often overlap)
-    merged: list[list[float]] = []
-    for a, b in spans:
-        if merged and a <= merged[-1][1] + 0.02:
-            merged[-1][1] = max(merged[-1][1], b)
-        else:
-            merged.append([a, b])
-    return [(a, b) for a, b in merged]
-
-
-def _wall_time_at(spans: list[tuple[float, float]], offset: float) -> float:
-    """Map a position inside the *sung* timeline back to wall-clock seconds."""
-    if not spans:
-        return max(0.0, offset)
-    acc = 0.0
-    for a, b in spans:
-        dur = b - a
-        if offset <= acc + dur:
-            return a + (offset - acc)
-        acc += dur
-    return spans[-1][1]
-
-
-
-def _sanitize_timings(timings: list[tuple[float, float]], max_line: float = 15.0) -> list[tuple[float, float]]:
-    """Force a usable timeline: monotonic, non-overlapping, sane per-line length.
-
-    ASR matches are sparse and sometimes land on an instrumental outro, which can
-    hand one line a 60s span. A rough timeline the user can fix beats a precise
-    one that is obviously wrong.
-    """
-    if not timings:
-        return timings
-    clean: list[tuple[float, float]] = []
-    prev_end = 0.0
-    for a, b in timings:
-        a = max(0.0, float(a), prev_end)
-        b = max(a + 0.4, min(float(b), a + max_line))
-        clean.append((round(a, 2), round(b, 2)))
-        prev_end = b + 0.01
-    return clean
-
-
-def _allocate_timings(spans: list[tuple[float, float]], weights: list[int]) -> list[tuple[float, float]]:
-    """Share the sung timeline between lines in proportion to their mora counts.
-
-    Using sung spans (not the whole file) means intros, instrumental breaks and
-    the outro don't swallow the lyrics.
-    """
-    if not spans:
-        return [(-1.0, -1.0)] * len(weights)
-    total_dur = sum(b - a for a, b in spans)
-    total_w = max(1, sum(weights))
-    out: list[tuple[float, float]] = []
-    acc = 0.0
-    for w in weights:
-        dur = total_dur * w / total_w
-        start = _wall_time_at(spans, acc)
-        end = _wall_time_at(spans, acc + dur)
-        if end - start < 0.25:
-            end = start + 0.25
-        out.append((round(start, 2), round(end, 2)))
-        acc += dur
-    return out
 
 # ------------------------------------------------------------------ songs
 
@@ -625,57 +553,18 @@ def bulk_sync(song_id: str, payload: dict[str, Any] = Body(...)) -> dict[str, An
 
 @app.post("/api/songs/{song_id}/autosync")
 def autosync(song_id: str) -> dict[str, Any]:
-    song = _song(song_id)
-    url = song.get("sourceUrl")
+    _song(song_id)
 
     def work(progress: Callable[[float, str], None]) -> dict[str, Any]:
         au = _require_audio()
-        fresh = store.get_song(song_id)
-        if not fresh.get("lines"):
+        song = store.get_song(song_id)
+        if not song.get("lines"):
             raise RuntimeError("还没有歌词，先粘贴歌词再自动同步")
-
-        spans: list[tuple[float, float]] = []
-        asr_result: dict[str, Any] | None = None
-        source = "captions"
-        if url:
-            progress(8, "抓取视频字幕…")
-            try:
-                cues = au.fetch_captions(url, store.song_dir(song_id))
-            except Exception:  # noqa: BLE001
-                cues = None
-            if cues:
-                _texts, timings = _captions_to_lines(cues)
-                if timings:
-                    spans = [(a, b) for a, b in timings if b > a]
-        if not spans:
-            source = "asr"
-            audio_path = store.audio_path(song_id)
-            if not audio_path:
-                raise RuntimeError("没有字幕，也找不到音频文件，无法自动同步")
-            progress(15, "没有字幕，用语音识别找演唱段落（约需 1 分钟）…")
-            result = au.transcribe(audio_path, language="ja")
-            asr_result = result
-            spans = _sung_spans(result)
-            if not spans:
-                raise RuntimeError("语音识别没找到清晰的演唱段落，请用 tap 手动同步")
-
-        progress(70, f"按 {source} 时间轴对齐歌词…")
-        weights = [max(1, sum(len(t.get("morae") or []) for t in l["tokens"])) for l in fresh["lines"]]
-        timings = None
-        if source == "asr" and asr_result:
-            timings = _asr_line_timings(fresh["lines"], asr_result)
-            if timings:
-                source = "asr-mora"
-        if not timings:
-            timings = _allocate_timings(spans, weights)
-        timings = _sanitize_timings(timings)
-        for line, (a, b) in zip(fresh["lines"], timings):
-            line["start"], line["end"] = a, b
-        store.mark_synced(fresh)
-        fresh["syncedFrom"] = source
-        store.save_song(fresh)
+        progress(10, "找字幕 / 演唱段落…")
+        source = _align_lines_to_audio(au, song, progress)
+        store.save_song(song)
         progress(100, "已自动同步" + ("（字幕）" if source == "captions" else "（按演唱位置对齐，建议核对）"))
-        return {"songId": song_id, "source": source, "spans": len(spans)}
+        return {"songId": song_id, "source": source}
 
     job = _start_job("autosync", work)
     return {"jobId": job["id"]}

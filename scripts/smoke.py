@@ -97,7 +97,7 @@ class Api:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--query", default="ふるさと 童謡")
+    ap.add_argument("--query", default="Say Yes")
     ap.add_argument("--port", type=int, default=8787)
     ap.add_argument("--lyrics", default=None, help="path to a lyrics text file")
     ap.add_argument("--skip-ingest", default=None, help="existing song id")
@@ -117,15 +117,27 @@ def main() -> int:
         job = api.post("/api/ingest", {"query": args.query})
         done = api.wait(job["jobId"])
         song_id = done["result"]["songId"]
+        res = done["result"]
+        check("name -> lyrics+audio", lambda: f"{res['title']} — {res['artist']} | "
+                                              f"lyrics={res.get('lyricsSource')} timing={res.get('timingSource')}")
     check("ingest", lambda: song_id)
 
     song = api.get(f"/api/songs/{song_id}")
-    check("downloaded audio", lambda: f"{song['duration']:.0f}s, lines={len(song['lines'])}")
+    check("downloaded audio", lambda: f"{song['duration']:.0f}s, lines={len(song['lines'])}, synced={song['synced']}")
+    check("auto-synced from one input", lambda: f"synced={song['synced']} timing={song.get('timingSource')}")
+    if not song["synced"] or not song["lines"]:
+        raise SystemExit("name-only ingest did not produce a synced song")
 
-    lyrics = Path(args.lyrics).read_text("utf-8") if args.lyrics else LYRICS
-    song = api.post(f"/api/songs/{song_id}/lyrics", {"text": lyrics, "source": "smoke"})
-    check("paste lyrics", lambda: f"{len(song['lines'])} lines, "
-                                  f"{sum(len(t['morae']) for l in song['lines'] for t in l['tokens'])} morae")
+    song = api.get(f"/api/songs/{song_id}")
+    if song["lines"] and not args.lyrics:
+        # name-only ingest already fetched real lyrics — never clobber them
+        check("lyrics fetched by name", lambda: f"{len(song['lines'])} lines, "
+                                                f"source={song.get('lyricsSource')}, timing={song.get('timingSource')}")
+    else:
+        lyrics = Path(args.lyrics).read_text("utf-8") if args.lyrics else LYRICS
+        song = api.post(f"/api/songs/{song_id}/lyrics", {"text": lyrics, "source": "smoke"})
+        check("paste lyrics", lambda: f"{len(song['lines'])} lines, "
+                                      f"{sum(len(t['morae']) for l in song['lines'] for t in l['tokens'])} morae")
 
     if not song["synced"]:
         job = api.post(f"/api/songs/{song_id}/autosync")

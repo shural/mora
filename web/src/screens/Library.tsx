@@ -91,7 +91,7 @@ export function Library() {
           <em>唱对</em>，也读懂。
         </h1>
         <p className="hero-lede">
-          贴一个链接，跟着歌词逐字高亮唱；点开任何一个词，看清它的读音、语气和中文意思。
+          只打歌名就行 —— 歌词和音频会自动配好；跟着逐字高亮唱，点开任何一个词看清读音、语气和中文意思。
         </p>
 
         <form className="add-bar" onSubmit={handleAdd}>

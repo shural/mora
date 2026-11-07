@@ -52,7 +52,12 @@ Base `http://127.0.0.1:8787`. All JSON. Errors: `{"error": "human readable", "de
 GET  /api/health
      -> {ok, ytdlp, ffmpeg, whisper:{ok,model}, ollama:{ok,model}, tokenizer}
 
-POST /api/ingest   {query:"https://... | search text"} -> {jobId}
+POST /api/ingest   {query:"https://... | song name", force?:bool} -> {jobId}
+     A URL downloads audio and tries captions.
+     A *song name* also resolves lyrics first (QQ Music), then searches audio
+     using the lyric provider's artist+title, and uses the LRC timestamps
+     directly when they agree with the downloaded audio's duration.
+     Job result adds: {songId,title,artist,lines,lyricsSource,timingSource,existing?,matched?}
 POST /api/songs/{id}/autosync  -> {jobId}
 POST /api/songs/{id}/annotate  -> {jobId}
 GET  /api/jobs/{jobId} -> {id, kind, status:"running|done|error", progress:0..100, message, songId?, result?}
@@ -115,6 +120,9 @@ interface Song {
   audioUrl: string; coverUrl: string | null;
   sourceUrl: string | null; offset: number;   // seconds, added to every line time
   synced: boolean; createdAt: string;
+  lyricsSource?: "qq" | "captions" | "pasted" | "none";
+  timingSource?: "lrc" | "asr-mora" | "asr" | "captions" | "none";
+  matchedFrom?: { title: string; artist: string; source: string; duration: number };
   cards: Card[];
   lines: Line[];
 }

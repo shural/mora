@@ -126,7 +126,8 @@ def _prompt_for(lines: list[dict[str, Any]], start_index: int) -> str:
     )
 
 
-def _apply(lines: list[dict[str, Any]], start_index: int, payload: Any) -> int:
+def _apply(lines: list[dict[str, Any]], start_index: int, payload: Any,
+           overwrite_gloss: bool = True) -> int:
     """Map the model's rows onto our lines.
 
     Models renumber, skip and reorder rows; so match by echoed text first,
@@ -173,7 +174,7 @@ def _apply(lines: list[dict[str, Any]], start_index: int, payload: Any) -> int:
         line = lines[target]
 
         gloss = row.get("gloss_zh")
-        if isinstance(gloss, str) and gloss.strip():
+        if isinstance(gloss, str) and gloss.strip() and (overwrite_gloss or not line.get("glossZh")):
             line["glossZh"] = gloss.strip()
         nat = row.get("naturalness")
         if nat in ("green", "yellow", "red"):
@@ -198,7 +199,8 @@ def _apply(lines: list[dict[str, Any]], start_index: int, payload: Any) -> int:
     return applied
 
 
-def annotate_song(song: dict[str, Any], progress: Callable[[float, str], None] | None = None) -> dict[str, Any]:
+def annotate_song(song: dict[str, Any], progress: Callable[[float, str], None] | None = None,
+                  overwrite_gloss: bool = True) -> dict[str, Any]:
     """Annotate every line. Mutates `song` in place and returns it."""
     def tick(p: float, msg: str) -> None:
         if progress:
@@ -226,7 +228,7 @@ def annotate_song(song: dict[str, Any], progress: Callable[[float, str], None] |
             except OllamaError:
                 if attempt == 1:
                     raise
-        done += _apply(lines, start_index, payload)
+        done += _apply(lines, start_index, payload, overwrite_gloss)
     # The model sometimes silently drops a row (duplicate lines confuse it).
     # Retry only the holes, one line per call.
     missing = [i for i, ln in enumerate(lines) if ln.get("naturalness") is None]
@@ -237,7 +239,7 @@ def annotate_song(song: dict[str, Any], progress: Callable[[float, str], None] |
                 {"role": "system", "content": SYSTEM},
                 {"role": "user", "content": _prompt_for([lines[i]], 0)},
             ])
-            done += _apply([lines[i]], 0, extract_json(content))
+            done += _apply([lines[i]], 0, extract_json(content), overwrite_gloss)
         except OllamaError:
             continue
     song["annotatedAt"] = True

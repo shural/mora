@@ -32,6 +32,7 @@ So Mora is built around four things a lyrics reader can't do:
 |---|---|
 | **モーラ・ルーラー** | Lyrics are split into morae and laid on a beat ruler synced to the audio. `きょう` is 2 beats, `がっこう` is 4. You stop singing syllables and start singing morae. |
 | **自然度 (naturalness)** | Every line is tagged 🟢 日常可用 / 🟡 诗意但成立 / 🔴 只存在于歌词, with the natural way to say it. Songs are full of 文語 (`〜しか`, `〜がたき`, `如何にいます`) that you must **not** copy into conversation. Most apps quietly teach you this broken Japanese. |
+| **一名直达** | Type a title, get a finished lesson. Lyrics are located by name, the canonical artist is recovered from the lyric catalogue (so `Say Yes` doesn't become an English R&B track), and the provider's own LRC timestamps are reused when they match the audio — otherwise it falls back to aligning against the vocal. |
 | **当て字 reading resolution** | `故郷` is こきょう in a dictionary and ふるさと in the song. `運命`→さだめ, `地球`→ほし. Lyrics routinely break the dictionary, so the app flags it and lets you override the reading per word. |
 | **唱回来 diff** | Record one line → whisper transcribes you → the app diffs at **mora level**: *"丢掉了促音「っ」——要停一拍再发下一个音"*. This is the only feature that fixes "I don't spell it correctly". |
 
@@ -60,8 +61,11 @@ cd web && pnpm install && pnpm dev     # http://127.0.0.1:5173
 
 ## How to use it
 
-1. **Add a song** — paste a YouTube / Bilibili URL, or type a song name (it searches both).
-   Audio is downloaded locally; if the video has subtitles they're used for a first-pass sync.
+1. **Add a song** — type a name. That's it: `Say Yes` → it finds the lyrics
+   (timestamped, from QQ Music's licensed catalogue), works out the real artist
+   from them, then searches YouTube/Bilibili for *that* artist's audio, downloads
+   it, and uses the lyric timestamps directly when the durations agree. You can
+   also paste a URL if you have an exact video in mind.
 2. **Paste the lyrics** — in `読む` → 编辑歌词. (Automatic captions are a rough machine transcript,
    real lyrics always beat them; pasting also fixes 当て字 readings for the whole song.)
 3. **Sync** — try 自动同步 (subtitles → or whisper on the audio), then fix by hand with
