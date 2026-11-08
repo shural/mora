@@ -17,7 +17,7 @@ jobs:
       - name: compile
         run: python -m compileall -q server scripts
       - name: install the import-time dependency only
-        run: pip install "fastapi>=0.110"
+        run: pip install "fastapi>=0.110" python-multipart
       - name: import server without optional deps
         run: python -c "import server.main as m; print('routes:', len(m.app.routes))"
 
