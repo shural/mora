@@ -16,6 +16,8 @@ jobs:
       # imports are lazy by design, so a syntax/compile pass catches most breakage
       - name: compile
         run: python -m compileall -q server scripts
+      - name: install the import-time dependency only
+        run: pip install "fastapi>=0.110"
       - name: import server without optional deps
         run: python -c "import server.main as m; print('routes:', len(m.app.routes))"
 
@@ -31,7 +33,7 @@ jobs:
           version: 11
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
