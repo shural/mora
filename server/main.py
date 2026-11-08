@@ -340,16 +340,29 @@ def _calibrate_offset(au: Any, song: dict[str, Any],
 
     base = score(0.0)
     best_off, best = 0.0, base
-    for i in range(-20, 21):
-        off = round(i * 0.1, 2)
+    # A video can carry a much longer intro than the lyric provider's master
+    # (231s vs 215s on DAN DAN 心魅かれてく = a +12s shift), so search wide
+    # first and only then refine around the winner.
+    for i in range(-40, 41):
+        off = round(i * 0.5, 2)
         if off == 0.0:
             continue
         sc = score(off)
         if sc > best:
             best, best_off = sc, off
+    if best_off != 0.0:
+        for i in range(-10, 11):
+            off = round(best_off + i * 0.1, 2)
+            if off == best_off:
+                continue
+            sc = score(off)
+            if sc > best:
+                best, best_off = sc, off
 
     applied = 0.0
-    if base >= 0.50 and (best - base) >= 0.03 and abs(best_off) >= 0.2:
+    # require a *strong* absolute match, not merely an improvement over a
+    # baseline that may itself be garbage
+    if best >= 0.55 and (best - base) >= 0.10 and abs(best_off) >= 0.2:
         applied = best_off
         song["offset"] = best_off
     song["offsetCalibration"] = {
