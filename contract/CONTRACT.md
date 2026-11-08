@@ -16,7 +16,7 @@ Everything runs on this Mac. Nothing is uploaded anywhere.
 ## Run commands
 
 ```bash
-cd /Users/media/Documents/dsh_playground/mora
+cd mora
 ./run.sh            # builds web/ if needed, starts uvicorn on 127.0.0.1:8787
 .venv/bin/python -m uvicorn server.main:app --port 8787 --reload   # backend dev
 cd web && pnpm install && pnpm dev                                 # frontend dev on :5173, proxies /api -> :8787

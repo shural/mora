@@ -138,11 +138,26 @@ cached and is *not* used for liveness), and while in demo mode the page re-probe
 - On some networks YouTube's subtitle endpoint is rate-limited (HTTP 429), so `自动同步` falls
   straight through to the ASR path. That's expected, not a bug.
 
-## Legal
+## What this repo does not ship
 
-Mora downloads audio you have a right to listen to and annotates lyrics **you** supply, for
-private study. It never redistributes lyrics or audio. Don't ship a database of other people's
-lyrics with it.
+No audio, no lyrics, no song database. `data/` is git-ignored and everything under it is created
+on your machine: the audio you fetch and the lyrics you paste or look up stay local. The
+screenshots use 「故郷（ふるさと）」and 「赤とんぼ」, which are public domain.
+
+The code fetches audio with `yt-dlp` and looks lyrics up from a public endpoint — use it for
+material you have the right to listen to, for private study. Don't turn it into a service that
+redistributes other people's lyrics or recordings.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+## As a DSH plugin
+
+There is a companion bundle that puts Mora inside [DeepSeek Harness](https://github.com/deepseek-ai):
+a side panel with the per-word breakdown and a practice bar, plus five tools the assistant can
+call (`mora_songs`, `mora_add_song`, `mora_song`, `mora_cards`, `mora_review`).
+See **mora-dsh** (this repo's sibling).
 
 ## Roadmap
 
