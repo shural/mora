@@ -1,5 +1,7 @@
 # Mora モーラ
 
+![ci](https://github.com/shural/mora/actions/workflows/ci.yml/badge.svg) · [mora-dsh](https://github.com/shural/mora-dsh)
+
 **A local lab for learning to sing Japanese songs — without learning broken Japanese.**
 
 You bring a song you already love. Mora turns it into a sound-first study sheet: every mora
