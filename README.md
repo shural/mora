@@ -157,7 +157,7 @@ MIT — see [LICENSE](LICENSE).
 There is a companion bundle that puts Mora inside [DeepSeek Harness](https://github.com/deepseek-ai):
 a side panel with the per-word breakdown and a practice bar, plus five tools the assistant can
 call (`mora_songs`, `mora_add_song`, `mora_song`, `mora_cards`, `mora_review`).
-See **mora-dsh** (this repo's sibling).
+See **[mora-dsh](https://github.com/shural/mora-dsh)**.
 
 ## Roadmap
 
