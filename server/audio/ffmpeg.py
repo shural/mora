@@ -39,65 +39,70 @@ def _run_ffmpeg(
 
 
 def normalise_for_web(src: Path, dest: Path) -> Path:
-    """Decode any yt-dlp container to 44.1 kHz mono AAC in a .m4a.
+    """Make the downloaded media playable in the browser without degrading it.
 
-    Falls back to mp3 (libmp3lame, 128k) when the local ffmpeg build has no AAC
-    encoder; in that case the returned path ends in ``.mp3``.
+    - AAC source  -> remuxed into .m4a with ``-c:a copy`` (no generation loss,
+                     original sample rate and channel count preserved)
+    - Opus source -> remuxed into .webm with ``-c:a copy`` (Chromium plays it)
+    - anything else -> one encode to AAC 256k stereo
+
+    The previous version downmixed everything to mono and re-encoded at 128k,
+    which cost a generation of quality on top of an already lossy source.
     """
     src, dest = Path(src), Path(dest)
     ensure_dir(dest.parent)
-    m4a_tmp = dest.with_name(dest.stem + ".tmp.m4a")
+
+    codec = ""
+    try:
+        codec = str(audio_stream(src).get("codec_name") or "").lower()
+    except AudioError:
+        codec = ""
+
+    if codec == "aac":
+        tmp = dest.with_name(dest.stem + ".tmp.m4a")
+        try:
+            _run_ffmpeg(
+                ["-i", str(src), "-vn", "-c:a", "copy", "-movflags", "+faststart",
+                 "-f", "mp4", str(tmp)],
+                timeout=300, what="ffmpeg remux (aac copy)", dest=tmp,
+            )
+            _replace(tmp, dest)
+            return dest
+        except AudioError:
+            tmp.unlink(missing_ok=True)
+
+    if codec in ("opus", "libopus"):
+        webm = dest.with_suffix(".webm")
+        tmp = webm.with_name(webm.stem + ".tmp.webm")
+        try:
+            _run_ffmpeg(
+                ["-i", str(src), "-vn", "-c:a", "copy", "-f", "webm", str(tmp)],
+                timeout=300, what="ffmpeg remux (opus copy)", dest=tmp,
+            )
+            _replace(tmp, webm)
+            return webm
+        except AudioError:
+            tmp.unlink(missing_ok=True)
+
+    tmp = dest.with_name(dest.stem + ".tmp.m4a")
     try:
         _run_ffmpeg(
-            [
-                "-i",
-                str(src),
-                "-vn",
-                "-ac",
-                "1",
-                "-ar",
-                str(WEB_SAMPLE_RATE),
-                "-c:a",
-                "aac",
-                "-b:a",
-                "128k",
-                "-movflags",
-                "+faststart",
-                "-f",
-                "mp4",
-                str(m4a_tmp),
-            ],
-            timeout=300,
-            what="ffmpeg normalise (aac)",
-            dest=m4a_tmp,
+            ["-i", str(src), "-vn", "-ac", "2", "-ar", str(WEB_SAMPLE_RATE),
+             "-c:a", "aac", "-b:a", "256k", "-movflags", "+faststart",
+             "-f", "mp4", str(tmp)],
+            timeout=300, what="ffmpeg normalise (aac 256k stereo)", dest=tmp,
         )
-        _replace(m4a_tmp, dest)
+        _replace(tmp, dest)
         return dest
     except AudioError:
-        m4a_tmp.unlink(missing_ok=True)
+        tmp.unlink(missing_ok=True)
 
     mp3_dest = dest.with_suffix(".mp3")
     mp3_tmp = mp3_dest.with_name(mp3_dest.stem + ".tmp.mp3")
     _run_ffmpeg(
-        [
-            "-i",
-            str(src),
-            "-vn",
-            "-ac",
-            "1",
-            "-ar",
-            str(WEB_SAMPLE_RATE),
-            "-c:a",
-            "libmp3lame",
-            "-b:a",
-            "128k",
-            "-f",
-            "mp3",
-            str(mp3_tmp),
-        ],
-        timeout=300,
-        what="ffmpeg normalise (mp3 fallback)",
-        dest=mp3_tmp,
+        ["-i", str(src), "-vn", "-ac", "2", "-ar", str(WEB_SAMPLE_RATE),
+         "-c:a", "libmp3lame", "-b:a", "192k", "-f", "mp3", str(mp3_tmp)],
+        timeout=300, what="ffmpeg normalise (mp3 fallback)", dest=mp3_tmp,
     )
     _replace(mp3_tmp, mp3_dest)
     return mp3_dest

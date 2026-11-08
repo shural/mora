@@ -286,7 +286,7 @@ def download(url: str, dest: Path, progress: Callable[[float, str], None]) -> di
     emit(0.0, "开始下载 0%")
     target = _normalise_target(url)
     # Fresh ingest: drop a previous result so _find_source can never pick it.
-    for stale in (dest / "audio.m4a", dest / "audio.mp3"):
+    for stale in (dest / "audio.m4a", dest / "audio.mp3", dest / "audio.webm", dest / "audio.wav"):
         stale.unlink(missing_ok=True)
 
     attempts: list[tuple[str, bool]] = [("default", False)]
@@ -325,7 +325,7 @@ def download(url: str, dest: Path, progress: Callable[[float, str], None]) -> di
         assert last_error is not None
         raise last_error
 
-    emit(94.0, "转码中 94%")
+    emit(94.0, "封装中 94%")
     out = ff.normalise_for_web(source, dest / "audio.m4a")
     _cleanup_source(dest, keep=out)
 
