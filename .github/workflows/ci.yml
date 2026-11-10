@@ -21,6 +21,19 @@ jobs:
       - name: import server without optional deps
         run: python -c "import server.main as m; print('routes:', len(m.app.routes))"
 
+  tests:
+    # Pure logic only: mora splitting, romaji, furigana alignment, particle
+    # roles, LRC credit filtering, the mora diff, the timeline sanitiser.
+    # Runs in ~1 s and needs no audio, network, whisper or Ollama.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install "fastapi>=0.110" python-multipart pytest fugashi unidic-lite
+      - run: python -m pytest tests -q
+
   web:
     runs-on: ubuntu-latest
     defaults:
